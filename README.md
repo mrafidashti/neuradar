@@ -26,7 +26,6 @@ Radar is an important sensor for autonomous driving (AD) systems due to its robu
 - [ ] Release code
 
 ## Citation
-If you find this work useful, please consider citing:
 ```bibtex
 @article{rafidashti2025neuradar,
   title        = {NeuRadar: Neural Radiance Fields for Automotive Radar Point Clouds},
