@@ -8,13 +8,9 @@ NeuRadar: Neural Radiance Fields for Automotive Radar Point Clouds
 
 <div align="center">
 <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/imgs/top_figure_0.pdf" />
-    <img alt="tyro logo" src="docs/imgs/top_figure_0.pdf" width="80%"/>
+    <img alt="top figure" src="docs/imgs/neuradar_top_figure.png">
 </picture>
 </div>
-
-[About](#about)  ·
-[TODOs](#todos)
 
 </div>
 
