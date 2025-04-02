@@ -1,4 +1,11 @@
 
+<p align="center">
+    <!-- paper badges -->
+    <a href="https://arxiv.org/abs/2504.00859">
+        <img src='https://img.shields.io/badge/arXiv-Page-aff'>
+    </a>
+</p>
+
 <div align="center">
 <h4 style="font-size:1.5em;">
 NeuRadar: Neural Radiance Fields for Automotive Radar Point Clouds
