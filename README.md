@@ -15,7 +15,7 @@ NeuRadar: Neural Radiance Fields for Automotive Radar Point Clouds
 
 <div align="center">
 <picture>
-    <img alt="top figure" src="docs/imgs/neuradar_top_figure.png">
+    <img alt="top figure" src="docs/imgs/neuradar_top_figure.png" width="120%">
 </picture>
 </div>
 
