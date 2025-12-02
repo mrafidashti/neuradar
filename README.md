@@ -32,6 +32,54 @@ Radar is an important sensor for autonomous driving (AD) systems due to its robu
 # TODOs
 - [ ] Release code
 
+# Quickstart
+
+## 1. Installation: Setup the environment
+
+### Prerequisites
+
+Our installation steps largely follow NeuRAD. You must have an NVIDIA video card with CUDA installed on the system. This library has been tested with version 11.8 of CUDA. You can find more information about installing CUDA [here](https://docs.nvidia.com/cuda/cuda-quick-start-guide/index.html).
+
+### Create environment
+
+The models require `python >= 3.10`. We recommend using conda to manage dependencies. Make sure to install [Conda](https://docs.conda.io/miniconda.html) before proceeding.
+
+```bash
+conda create --name neuradar -y python=3.10
+conda activate neuradar
+pip install --upgrade pip
+```
+
+### Dependencies
+
+Install PyTorch with CUDA (this repo has been tested with CUDA 11.8) and [tiny-cuda-nn](https://github.com/NVlabs/tiny-cuda-nn).
+`cuda-toolkit` is required for building `tiny-cuda-nn`.
+
+For CUDA 11.8:
+
+```bash
+pip install torch==2.0.1+cu118 torchvision==0.15.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+
+conda install -c "nvidia/label/cuda-11.8.0" cuda-toolkit
+
+# Some need to upgrade dill prior to tiny-cuda-nn install
+pip install dill --upgrade
+pip install --upgrade pip "setuptools<70.0"
+
+pip install ninja git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
+```
+
+We refer to [NeuRAD](https://github.com/georghess/neurad-studio?tab=readme-ov-file#) and [Nerfstudio](https://github.com/nerfstudio-project/nerfstudio/blob/v1.0.3/docs/quickstart/installation.md) for more installation support.
+
+### Installing neuradar
+```bash
+git clone git@github.com:mrafidashti/neuradar.git
+cd neuradar
+pip install -e .
+```
+
+# 2. Data Preparation
+
 ## Citation
 ```bibtex
 @article{rafidashti2025neuradar,
