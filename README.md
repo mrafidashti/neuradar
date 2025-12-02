@@ -52,10 +52,8 @@ pip install --upgrade pip
 
 ### Dependencies
 
-Install PyTorch with CUDA (this repo has been tested with CUDA 11.8) and [tiny-cuda-nn](https://github.com/NVlabs/tiny-cuda-nn).
+Install PyTorch with CUDA 11.8 and [tiny-cuda-nn](https://github.com/NVlabs/tiny-cuda-nn).
 `cuda-toolkit` is required for building `tiny-cuda-nn`.
-
-For CUDA 11.8:
 
 ```bash
 pip install torch==2.0.1+cu118 torchvision==0.15.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
