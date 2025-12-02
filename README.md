@@ -80,9 +80,10 @@ pip install -e .
 
 ## Citation
 ```bibtex
-@article{rafidashti2025neuradar,
-  title        = {NeuRadar: Neural Radiance Fields for Automotive Radar Point Clouds},
-  author       = {Rafidashti, Mahan and Lan, Ji and Fatemi, Maryam and Fu, Junsheng and Hammarstrand, Lars and Svensson, Lennart},
-  journal      = {},
-  year         = {2025}
+@inproceedings{rafidashti2025neuradar,
+  title={NeuRadar: Neural Radiance Fields for Automotive Radar Point Clouds},
+  author={Rafidashti, Mahan and Lan, Ji and Fatemi, Maryam and Fu, Junsheng and Hammarstrand, Lars and Svensson, Lennart},
+  booktitle={Proceedings of the Computer Vision and Pattern Recognition Conference},
+  pages={2488--2498},
+  year={2025}
 }
