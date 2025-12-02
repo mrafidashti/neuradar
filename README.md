@@ -76,7 +76,7 @@ cd neuradar
 pip install -e .
 ```
 
-# 2. Data Preparation
+## 2. Data Preparation
 
 1. Please create a directory `./data` in the root directory of the repository.
 
@@ -102,7 +102,7 @@ Notably,
 - Only the necessary subdirectories are shown in the structure above.
 - The full ZOD sequences occupy 1.5 TB. To save space, you can keep only the sequences you’re interested in.
 
-# 3. Train Model
+## 3. Train Model
 
 ## Citation
 ```bibtex
