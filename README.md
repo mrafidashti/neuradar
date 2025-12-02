@@ -78,6 +78,32 @@ pip install -e .
 
 # 2. Data Preparation
 
+1. Please create a directory `./data` in the root directory of the repository.
+
+2. Download [Zenseact Open Dataset (ZOD)](https://github.com/zenseact/zod). 
+
+3. Download [View-of-Delft (VoD)](https://intelligent-vehicles.org/datasets/view-of-delft/).
+
+4. Softlink the files into the `./data` directory. The structure of the data directory should be as follows:
+
+```shell script
+neuradar
+    ├──data
+    │   ├── zod
+    │   │  ├── trainval-sequences-full.json
+    │   │  ├── auto_annotations
+    │   │  └── sequences
+    │   ├── vod
+    │   │  ├── lidar
+    │   │  └── radar
+    └──...
+```
+Notably, 
+- Only the necessary subdirectories are shown in the structure above.
+- The full ZOD sequences occupy 1.5 TB. To save space, you can keep only the sequences you’re interested in.
+
+# 3. Train Model
+
 ## Citation
 ```bibtex
 @inproceedings{rafidashti2025neuradar,
