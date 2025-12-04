@@ -1,4 +1,6 @@
 # Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
+# Copyright 2025 the authors of NeuRadar and contributors.
 # Copyright 2024 the authors of NeuRAD and contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,12 +24,14 @@ import torch
 from rich.console import Console
 
 from nerfstudio.cameras.lidars import transform_points
+from nerfstudio.data.datamanagers.ad_datamanager import _find_smallest_crop, _worker_change_patch_sampler
+from nerfstudio.data.datamanagers.image_lidar_radar_datamanager import (
+    ImageLidarRadarDataManager,
+    ImageLidarRadarDataManagerConfig,
+)
 from nerfstudio.data.datasets.base_dataset import InputDataset
 from nerfstudio.data.pixel_samplers import ScaledPatchSamplerConfig
 from nerfstudio.data.utils.data_utils import remove_dynamic_points
-
-from nerfstudio.data.datamanagers.image_lidar_radar_datamanager import ImageLidarRadarDataManager, ImageLidarRadarDataManagerConfig
-from nerfstudio.data.datamanagers.ad_datamanager import _find_smallest_crop, _worker_change_patch_sampler
 
 CONSOLE = Console(width=120)
 

@@ -1,4 +1,6 @@
 # Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
+# Copyright 2025 the authors of NeuRadar and contributors.
 # Copyright 2024 the authors of NeuRAD and contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,17 +31,29 @@ from typing_extensions import Literal
 
 from nerfstudio.cameras.rays import RayBundle
 from nerfstudio.data.datamanagers.base_datamanager import TDataset
+from nerfstudio.data.datamanagers.image_lidar_datamanager import (
+    ImageLidarDataManager,
+    ImageLidarDataManagerConfig,
+    ImageLidarDataProcessor,
+    _cache_images,
+    _cache_points,
+    lidar_packed_collate,
+)
 from nerfstudio.data.datamanagers.parallel_datamanager import ParallelDataManager, ParallelDataManagerConfig
-from nerfstudio.data.datamanagers.image_lidar_datamanager import ImageLidarDataManagerConfig, ImageLidarDataManager, ImageLidarDataProcessor, lidar_packed_collate, _cache_images, _cache_points
 from nerfstudio.data.dataparsers.base_dataparser import DataparserOutputs
 from nerfstudio.data.datasets.base_dataset import InputDataset
 from nerfstudio.data.datasets.lidar_dataset import LidarDataset
 from nerfstudio.data.datasets.radar_dataset import RadarDataset
-from nerfstudio.data.pixel_samplers import LidarPointSampler, LidarPointSamplerConfig, PixelSampler, RadarPointSampler, RadarPointSamplerConfig
+from nerfstudio.data.pixel_samplers import (
+    LidarPointSampler,
+    LidarPointSamplerConfig,
+    PixelSampler,
+    RadarPointSampler,
+    RadarPointSamplerConfig,
+)
 from nerfstudio.data.utils.dataloaders import CacheDataloader, FixedIndicesEvalDataloader, RandIndicesEvalDataloader
 from nerfstudio.data.utils.nerfstudio_collate import nerfstudio_collate
 from nerfstudio.model_components.ray_generators import LidarRayGenerator, RadarRayGenrator
-
 
 CONSOLE = Console(width=120)
 
@@ -59,6 +73,7 @@ def radar_packed_collate(batch: List[Dict]) -> Dict:
     new_batch: dict = nerfstudio_collate(batch)
     new_batch["radar"] = torch.cat(radars, dim=0)
     return new_batch
+
 
 @dataclass
 class ImageLidarRadarDataManagerConfig(ImageLidarDataManagerConfig):
@@ -101,7 +116,7 @@ class ImageLidarRadarDataProcessor(ImageLidarDataProcessor):  # type: ignore
         radar_dataset: RadarDataset,
         cached_images: Dict[str, torch.Tensor],
         cached_points: Dict[str, torch.Tensor],
-        cached_radar_points: Dict[str, torch.Tensor]
+        cached_radar_points: Dict[str, torch.Tensor],
     ):
         super().__init__(
             out_queue=out_queue,
@@ -113,7 +128,7 @@ class ImageLidarRadarDataProcessor(ImageLidarDataProcessor):  # type: ignore
             lidar_dataset=lidar_dataset,
             point_sampler=point_sampler,
             cached_images=cached_images,
-            cached_points=cached_points
+            cached_points=cached_points,
         )
 
         self.radar_dataset = radar_dataset
@@ -125,7 +140,16 @@ class ImageLidarRadarDataProcessor(ImageLidarDataProcessor):  # type: ignore
         img_batch, img_ray_bundle = self.get_image_batch_and_ray_bundle()
         lidar_batch, lidar_ray_bundle = self.get_lidar_batch_and_ray_bundle()
         radar_batch, radar_ray_bundle = self.get_radar_batch_and_ray_bundle()
-        return _merge_img_lidar_radar(img_ray_bundle, img_batch, lidar_ray_bundle, lidar_batch, len(self.image_dataset), len(self.lidar_dataset), radar_ray_bundle, radar_batch)
+        return _merge_img_lidar_radar(
+            img_ray_bundle,
+            img_batch,
+            lidar_ray_bundle,
+            lidar_batch,
+            len(self.image_dataset),
+            len(self.lidar_dataset),
+            radar_ray_bundle,
+            radar_batch,
+        )
 
     def get_radar_batch_and_ray_bundle(self):
         if not len(self.radar_dataset.radars):
@@ -143,7 +167,7 @@ class ImageLidarRadarDataManager(ImageLidarDataManager):
         config: the ImageLidarRadarDataManagerConfig used to instantiate class
     """
 
-    config: ImageLidarRadarDataManagerConfig # type: ignore[override]
+    config: ImageLidarRadarDataManagerConfig  # type: ignore[override]
     train_radar_dataset: RadarDataset
     eval_radar_dataset: RadarDataset
 
@@ -186,7 +210,9 @@ class ImageLidarRadarDataManager(ImageLidarDataManager):
         # Cache jointly to allow memory sharing between processes
         cached_images = _cache_images(self.train_dataset, self.config.max_thread_workers, self.config.collate_fn)
         cached_points = _cache_points(self.train_lidar_dataset, self.config.max_thread_workers, lidar_packed_collate)
-        cached_radar_points = _cache_points(self.train_radar_dataset, self.config.max_thread_workers, radar_packed_collate)
+        cached_radar_points = _cache_points(
+            self.train_radar_dataset, self.config.max_thread_workers, radar_packed_collate
+        )
         self.data_queue = mp.Queue(maxsize=self.config.queue_size) if self.use_mp else None
         # Create an individual queue for passing functions to each process
         self.func_queues = [mp.Queue() for _ in range(max(self.config.num_processes, 1))]
@@ -201,10 +227,10 @@ class ImageLidarRadarDataManager(ImageLidarDataManager):
                 lidar_dataset=self.train_lidar_dataset,
                 point_sampler=self.train_point_sampler,
                 radar_point_sampler=self.train_radar_point_sampler,
-                radar_dataset = self.train_radar_dataset,
+                radar_dataset=self.train_radar_dataset,
                 cached_images=cached_images,
                 cached_points=cached_points,
-                cached_radar_points=cached_radar_points
+                cached_radar_points=cached_radar_points,
             )
             for func_queue in self.func_queues
         ]
@@ -265,22 +291,38 @@ class ImageLidarRadarDataManager(ImageLidarDataManager):
         else:
             radar_ray_bundle, radar_batch = None, None
         return _merge_img_lidar_radar(
-            img_ray_bundle, img_batch, lidar_ray_bundle, lidar_batch, len(self.eval_dataset.cameras), len(self.eval_lidar_dataset.lidars), radar_ray_bundle, radar_batch
+            img_ray_bundle,
+            img_batch,
+            lidar_ray_bundle,
+            lidar_batch,
+            len(self.eval_dataset.cameras),
+            len(self.eval_lidar_dataset.lidars),
+            radar_ray_bundle,
+            radar_batch,
         )
 
     def get_num_train_data(self) -> int:
         """Get the number of training datapoints (images + lidar + radar scans)."""
-        return len(self.train_dataset.cameras) + len(self.train_lidar_dataset.lidars)+ len(self.train_radar_dataset.radars)
+        return (
+            len(self.train_dataset.cameras)
+            + len(self.train_lidar_dataset.lidars)
+            + len(self.train_radar_dataset.radars)
+        )
 
     def next_eval_radar(self, step: int) -> Tuple[int, RayBundle, Dict]:
         for _, batch in self.rand_indices_eval_radar_dataloader:
-
-            radar_idx = batch['radar_idx']
-            num_points = batch['radar'].shape[0]
-            ray_indices = torch.cat([torch.full((num_points, 1), radar_idx, dtype=torch.int64, device=self.device), torch.arange(num_points, device=self.device).view(-1, 1)], dim=-1)  # actually, it is useless for generating rays
-            batch['indices'] = ray_indices
+            radar_idx = batch["radar_idx"]
+            num_points = batch["radar"].shape[0]
+            ray_indices = torch.cat(
+                [
+                    torch.full((num_points, 1), radar_idx, dtype=torch.int64, device=self.device),
+                    torch.arange(num_points, device=self.device).view(-1, 1),
+                ],
+                dim=-1,
+            )  # actually, it is useless for generating rays
+            batch["indices"] = ray_indices
             scan_index = torch.tensor([radar_idx])
-            ray_bundle = self.eval_radar_dataset.radars.generate_rays(scan_indices=scan_index).to(self.device) 
+            ray_bundle = self.eval_radar_dataset.radars.generate_rays(scan_indices=scan_index).to(self.device)
 
             is_radar = torch.ones((len(ray_bundle), 1), dtype=torch.bool, device=self.device)
             ray_bundle.metadata["is_radar"], batch["is_radar"] = is_radar, is_radar
@@ -352,7 +394,9 @@ def _merge_img_lidar_radar(
     else:
         ray_bundle = img_ray_bundle.cat(lidar_ray_bundle, dim=0)
         ray_bundle = ray_bundle.cat(radar_ray_bundle, dim=0)
-        overlapping_keys = set(img_batch.keys()).intersection(set(lidar_batch.keys())).intersection(set(radar_batch.keys())) - {"is_lidar", "is_radar", "did_return"}
+        overlapping_keys = set(img_batch.keys()).intersection(set(lidar_batch.keys())).intersection(
+            set(radar_batch.keys())
+        ) - {"is_lidar", "is_radar", "did_return"}
         assert not overlapping_keys, f"Overlapping keys in batch: {overlapping_keys}"
         batch = {
             **img_batch,

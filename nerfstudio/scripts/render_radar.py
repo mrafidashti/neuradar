@@ -1,3 +1,5 @@
+# Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
 # Copyright 2022 the Regents of the University of California, Nerfstudio Team and contributors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,8 +20,8 @@ render_radar.py
 """
 from __future__ import annotations
 
-import json
 import gzip
+import json
 import os
 import pickle
 import sys
@@ -28,49 +30,53 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from time import time
 from typing import List, Literal, Optional, Tuple, Union
-from jaxtyping import Float
-from torch import Tensor
-import numpy as np
-import mediapy as media
 
+import mediapy as media
+import numpy as np
+import plotly.graph_objects as go
 import torch
 import tyro
+from jaxtyping import Float
 from rich import box, style
 from rich.panel import Panel
 from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.table import Table
+from torch import Tensor
 from typing_extensions import Annotated
 
-import plotly.graph_objects as go
-
-from nerfstudio.cameras.camera_paths import (
-    get_path_from_json,
-)
+from nerfstudio.cameras.camera_paths import get_path_from_json
 from nerfstudio.cameras.camera_utils import get_interpolated_poses
 from nerfstudio.cameras.cameras import RayBundle
 from nerfstudio.cameras.lidars import transform_points, transform_points_pairwise
-from nerfstudio.cameras.radars import RadarType, Radars
+from nerfstudio.cameras.radars import Radars, RadarType
 from nerfstudio.data.datamanagers.ad_neuradar_datamanager import ADNeuRadarDataManager, ADNeuRadarDataManagerConfig
-from nerfstudio.data.dataparsers.zod_dataparser import RADAR_AZIMUTH_RAY_DIVERGENCE, RADAR_ELEVATION_RAY_DIVERGENCE, RADAR_FOV
+from nerfstudio.data.dataparsers.zod_dataparser import (
+    RADAR_AZIMUTH_RAY_DIVERGENCE,
+    RADAR_ELEVATION_RAY_DIVERGENCE,
+    RADAR_FOV,
+)
 from nerfstudio.data.datasets.base_dataset import Dataset
 from nerfstudio.data.datasets.radar_dataset import RadarDataset
 from nerfstudio.data.utils.dataloaders import FixedIndicesEvalDataloader
 from nerfstudio.engine.trainer import TrainerConfig
-from nerfstudio.model_components.radar_utils import MultiBernoulli, add_actor_boxes_to_figure, plot_radar_samples, sample_radar_points
+from nerfstudio.model_components.radar_utils import (
+    MultiBernoulli,
+    add_actor_boxes_to_figure,
+    plot_radar_samples,
+    sample_radar_points,
+)
 from nerfstudio.pipelines.base_pipeline import Pipeline
 from nerfstudio.scripts.render import BaseRender, modify_actors, plot_lidar_points
 from nerfstudio.utils import colormaps
 from nerfstudio.utils.eval_utils import eval_setup
-from nerfstudio.utils.poses import to4x4
-from nerfstudio.utils.poses import inverse as pose_inverse
+from nerfstudio.utils.poses import inverse as pose_inverse, to4x4
 from nerfstudio.utils.rich_utils import CONSOLE, ItersPerSecColumn
-
 
 
 def update_json_file(filename, new_data):
     if os.path.exists(filename):
         # Load existing data
-        with open(filename, 'r') as file:
+        with open(filename, "r") as file:
             existing_data = json.load(file)
     else:
         # If the file does not exist, start with an empty list
@@ -80,8 +86,9 @@ def update_json_file(filename, new_data):
     existing_data.append(new_data)
 
     # Write updated data back to the file
-    with open(filename, 'w') as file:
+    with open(filename, "w") as file:
         json.dump(existing_data, file, indent=4)
+
 
 def get_interpolated_radar_poses_many(
     poses: Float[Tensor, "num_poses 3 4"],
@@ -111,6 +118,7 @@ def get_interpolated_radar_poses_many(
     traj = np.stack(traj, axis=0)
 
     return torch.tensor(traj, dtype=torch.float32)
+
 
 def _render_radar_trajectory_video(
     pipeline: Pipeline,
@@ -145,7 +153,7 @@ def _render_radar_trajectory_video(
             radar2worlds, times = radars.radar_to_worlds[mask], radars.times[mask]
             delta_time = times[1:] - times[:-1]
             velo = (radar2worlds[1:, :3, 3] - radar2worlds[:-1, :3, 3]) / delta_time
-            velo[velo.isnan()] = 0.0 # for overfitting
+            velo[velo.isnan()] = 0.0  # for overfitting
             radars.metadata["velocities"][mask] = torch.cat((velo, velo[-1:]), 0)
 
     progress = Progress(
@@ -176,22 +184,28 @@ def _render_radar_trajectory_video(
                 outputs = pipeline.model.get_outputs_for_camera_ray_bundle(radar_ray_bundle)
                 radar_pcs = []
                 pc, ber_indices = sample_radar_points(outputs["radar_output"], "nll")
-                #pc = transform_points_pairwise(pc[:, :3], to4x4(radars.radar_to_worlds[radar_idx].to(pc.device)))
+                # pc = transform_points_pairwise(pc[:, :3], to4x4(radars.radar_to_worlds[radar_idx].to(pc.device)))
                 radar_pcs.append(pc)
                 mb = MultiBernoulli(outputs["radar_output"])
                 figure = plot_radar_samples(None, pc, None, mb, ber_indices, None, "2d")
 
                 # Add radar path to figure
-                #radar_origin = radars.radar_to_worlds[radar_idx, :3, 3].cpu().numpy()
+                # radar_origin = radars.radar_to_worlds[radar_idx, :3, 3].cpu().numpy()
                 radar_origin = np.zeros(3)
-                figure.add_trace(go.Scatter(x=[radar_origin[0]], y=[radar_origin[1]], mode="markers", marker=dict(size=10, color="red")))
+                figure.add_trace(
+                    go.Scatter(
+                        x=[radar_origin[0]], y=[radar_origin[1]], mode="markers", marker=dict(size=10, color="red")
+                    )
+                )
 
                 if actor_information is not None:
-                    figure = add_actor_boxes_to_figure(figure, actor_information, radars.radar_to_worlds[radar_idx], radar_idx, "2d")
+                    figure = add_actor_boxes_to_figure(
+                        figure, actor_information, radars.radar_to_worlds[radar_idx], radar_idx, "2d"
+                    )
 
-                #if radars.metadata["is_original_times"][radar_idx]:
+                # if radars.metadata["is_original_times"][radar_idx]:
                 #    interp_status = " "
-                #else:
+                # else:
                 #    interp_status = "(Interpolated)"
                 figure.update_layout(title=f"Radar Point Cloud at time {radars.times[radar_idx]}")
                 figure.write_image(output_image_dir / f"{radar_idx:05d}.png", width=1600, height=1200)
@@ -240,7 +254,7 @@ class RenderRadarFromCameraPath(BaseRender):
 
         with open(self.camera_path_filename, "r", encoding="utf-8") as f:
             camera_path = json.load(f)
-        #seconds = camera_path["seconds"]
+        # seconds = camera_path["seconds"]
         camera_path = get_path_from_json(camera_path)
 
         # Get Radars from camera path
@@ -255,7 +269,7 @@ class RenderRadarFromCameraPath(BaseRender):
             min_azimuth=RADAR_FOV[0][0],
             max_azimuth=RADAR_FOV[0][1],
             min_elevation=RADAR_FOV[1][0],
-            max_elevation=RADAR_FOV[1][1]
+            max_elevation=RADAR_FOV[1][1],
         )
 
         _render_radar_trajectory_video(
@@ -264,6 +278,7 @@ class RenderRadarFromCameraPath(BaseRender):
             output_filename=self.output_path,
             output_format=self.output_format,
         )
+
 
 @dataclass
 class RadarInterpolatedRender(BaseRender):
@@ -350,8 +365,7 @@ class RadarInterpolatedRender(BaseRender):
             curr_radars = radars[(radars.metadata["sensor_idxs"] == sensor_i).squeeze(-1)]
 
             new_poses = get_interpolated_radar_poses_many(
-                poses=curr_radars.radar_to_worlds,
-                steps_per_transition=self.interpolation_steps
+                poses=curr_radars.radar_to_worlds, steps_per_transition=self.interpolation_steps
             )
 
             radar_path_radar_to_worlds = new_poses
@@ -366,12 +380,16 @@ class RadarInterpolatedRender(BaseRender):
                 ).float()
                 radar_path_times = radar_path_times[:-1]
 
-            is_original_times = torch.tensor([any(curr_radars.times == time) for time in radar_path_times], dtype=torch.bool).view(-1, 1)
+            is_original_times = torch.tensor(
+                [any(curr_radars.times == time) for time in radar_path_times], dtype=torch.bool
+            ).view(-1, 1)
 
             radar_path_metadata = {"sensor_idxs": torch.full_like(radar_path_times, sensor_i)}
             radar_path_metadata.update({"is_original_times": is_original_times})
             radar_path_radar_azimuth_ray_divergence = torch.full_like(radar_path_times, RADAR_AZIMUTH_RAY_DIVERGENCE)
-            radar_path_radar_elevation_ray_divergence = torch.full_like(radar_path_times, RADAR_ELEVATION_RAY_DIVERGENCE)
+            radar_path_radar_elevation_ray_divergence = torch.full_like(
+                radar_path_times, RADAR_ELEVATION_RAY_DIVERGENCE
+            )
             radar_path_min_azimuth = torch.full_like(radar_path_times, RADAR_FOV[0][0])
             radar_path_max_azimuth = torch.full_like(radar_path_times, RADAR_FOV[0][1])
             radar_path_min_elevation = torch.full_like(radar_path_times, RADAR_FOV[1][0])
@@ -389,11 +407,13 @@ class RadarInterpolatedRender(BaseRender):
                 min_azimuth=radar_path_min_azimuth,
                 max_azimuth=radar_path_max_azimuth,
                 min_elevation=radar_path_min_elevation,
-                max_elevation=radar_path_max_elevation
+                max_elevation=radar_path_max_elevation,
             )
 
             # Get info on dynamic actors
-            actor_b2w, scan_indices, actor_indices = pipeline.model.dynamic_actors.get_boxes2world(query_times=radar_path_times.to(pipeline.device))
+            actor_b2w, scan_indices, actor_indices = pipeline.model.dynamic_actors.get_boxes2world(
+                query_times=radar_path_times.to(pipeline.device)
+            )
             actor_sizes = pipeline.model.dynamic_actors.actor_sizes
             actor_information = {
                 "actor_b2w": actor_b2w,
@@ -402,7 +422,7 @@ class RadarInterpolatedRender(BaseRender):
                 "scan_indices": scan_indices,
             }
 
-            #seconds = len(radar_path) / self.frame_rate
+            # seconds = len(radar_path) / self.frame_rate
 
             output_filename = self.output_path.parent / f"{self.output_path.name}"
             _render_radar_trajectory_video(
@@ -411,6 +431,7 @@ class RadarInterpolatedRender(BaseRender):
                 output_filename=output_filename,
                 actor_information=actor_information,
             )
+
 
 @dataclass
 class RadarPoseShiftRender(BaseRender):
@@ -519,16 +540,28 @@ class RadarPoseShiftRender(BaseRender):
             post_shift_radars.radar_to_worlds = post_shift_radars.radar_to_worlds.clone()
             post_shift_radars.radar_to_worlds[..., :3, 3] = post_shift_radars.radar_to_worlds[..., :3, 3] + self.shift
             mid_shift_radar_poses = get_interpolated_radar_poses_many(
-                torch.cat([pre_shift_radars.radar_to_worlds[-1:], post_shift_radars.radar_to_worlds[:1]]), steps_per_transition=self.shift_steps
+                torch.cat([pre_shift_radars.radar_to_worlds[-1:], post_shift_radars.radar_to_worlds[:1]]),
+                steps_per_transition=self.shift_steps,
             )
 
             mid_shift_radars = Radars(
                 radar_to_worlds=mid_shift_radar_poses,
-                radar_type=torch.full_like(mid_shift_radar_poses[..., 0, 0], pre_shift_radars.radar_type[0, 0], dtype=torch.int),
+                radar_type=torch.full_like(
+                    mid_shift_radar_poses[..., 0, 0], pre_shift_radars.radar_type[0, 0], dtype=torch.int
+                ),
                 assume_ego_compensated=True,
-                metadata={"sensor_idxs": torch.full_like(mid_shift_radar_poses[..., 0:1, 0], sensor_i), "velocities": pre_shift_radars.metadata["velocities"][-1].view(1, 3).repeat(len(mid_shift_radar_poses[..., 0, 0]), 1)},
-                radar_azimuth_ray_divergence=torch.full_like(mid_shift_radar_poses[..., 0, 0], RADAR_AZIMUTH_RAY_DIVERGENCE),
-                radar_elevation_ray_divergence=torch.full_like(mid_shift_radar_poses[..., 0, 0], RADAR_ELEVATION_RAY_DIVERGENCE),
+                metadata={
+                    "sensor_idxs": torch.full_like(mid_shift_radar_poses[..., 0:1, 0], sensor_i),
+                    "velocities": pre_shift_radars.metadata["velocities"][-1]
+                    .view(1, 3)
+                    .repeat(len(mid_shift_radar_poses[..., 0, 0]), 1),
+                },
+                radar_azimuth_ray_divergence=torch.full_like(
+                    mid_shift_radar_poses[..., 0, 0], RADAR_AZIMUTH_RAY_DIVERGENCE
+                ),
+                radar_elevation_ray_divergence=torch.full_like(
+                    mid_shift_radar_poses[..., 0, 0], RADAR_ELEVATION_RAY_DIVERGENCE
+                ),
                 min_azimuth=torch.full_like(mid_shift_radar_poses[..., 0, 0], RADAR_FOV[0][0]),
                 max_azimuth=torch.full_like(mid_shift_radar_poses[..., 0, 0], RADAR_FOV[0][1]),
                 min_elevation=torch.full_like(mid_shift_radar_poses[..., 0, 0], RADAR_FOV[1][0]),
@@ -536,13 +569,17 @@ class RadarPoseShiftRender(BaseRender):
             )
 
             if (pre_shift_radars.times) is not None:
-                mid_shift_radars.times = torch.full_like(mid_shift_radar_poses[..., 0:1, 0], pre_shift_radars.times[-1].item())
+                mid_shift_radars.times = torch.full_like(
+                    mid_shift_radar_poses[..., 0:1, 0], pre_shift_radars.times[-1].item()
+                )
 
             radar_path = pre_shift_radars.cat([mid_shift_radars, post_shift_radars])
             radar_path.metadata = {"sensor_idxs": torch.full_like(radar_path.radar_type, sensor_i)}
 
             # Get info on dynamic actors
-            actor_b2w, scan_indices, actor_indices = pipeline.model.dynamic_actors.get_boxes2world(query_times=radar_path.times.to(pipeline.device))
+            actor_b2w, scan_indices, actor_indices = pipeline.model.dynamic_actors.get_boxes2world(
+                query_times=radar_path.times.to(pipeline.device)
+            )
             actor_sizes = pipeline.model.dynamic_actors.actor_sizes
             actor_information = {
                 "actor_b2w": actor_b2w,
@@ -650,8 +687,7 @@ class RadarActorRemovalRender(BaseRender):
             curr_radars = radars[(radars.metadata["sensor_idxs"] == sensor_i).squeeze(-1)]
 
             new_poses = get_interpolated_radar_poses_many(
-                poses=curr_radars.radar_to_worlds,
-                steps_per_transition=self.interpolation_steps
+                poses=curr_radars.radar_to_worlds, steps_per_transition=self.interpolation_steps
             )
 
             radar_path = curr_radars
@@ -669,7 +705,9 @@ class RadarActorRemovalRender(BaseRender):
 
             radar_path.metadata = {"sensor_idxs": torch.full_like(radar_path.times, sensor_i)}
             radar_path.radar_azimuth_ray_divergence = torch.full_like(radar_path.times, RADAR_AZIMUTH_RAY_DIVERGENCE)
-            radar_path.radar_elevation_ray_divergence = torch.full_like(radar_path.times, RADAR_ELEVATION_RAY_DIVERGENCE)
+            radar_path.radar_elevation_ray_divergence = torch.full_like(
+                radar_path.times, RADAR_ELEVATION_RAY_DIVERGENCE
+            )
             radar_path.min_azimuth = torch.full_like(radar_path.times, RADAR_FOV[0][0])
             radar_path.max_azimuth = torch.full_like(radar_path.times, RADAR_FOV[0][1])
             radar_path.min_elevation = torch.full_like(radar_path.times, RADAR_FOV[1][0])
@@ -680,7 +718,9 @@ class RadarActorRemovalRender(BaseRender):
             pipeline.model.dynamic_actors.actor_present_at_time[no_actor_mask, :] = False
 
             # Get info on dynamic actors
-            actor_b2w, scan_indices, actor_indices = pipeline.model.dynamic_actors.get_boxes2world(query_times=radar_path.times.to(pipeline.device))
+            actor_b2w, scan_indices, actor_indices = pipeline.model.dynamic_actors.get_boxes2world(
+                query_times=radar_path.times.to(pipeline.device)
+            )
             actor_sizes = pipeline.model.dynamic_actors.actor_sizes
             actor_information = {
                 "actor_b2w": actor_b2w,
@@ -696,6 +736,7 @@ class RadarActorRemovalRender(BaseRender):
                 output_filename=output_filename,
                 actor_information=actor_information,
             )
+
 
 @dataclass
 class RadarDatasetRender(BaseRender):
@@ -780,9 +821,9 @@ class RadarDatasetRender(BaseRender):
             shift_relative_to_cam = torch.cat([shift_relative_to_cam, torch.tensor([1.0], dtype=torch.float32)])
             shift_relative_to_cam = shift_relative_to_cam.to(dataset.radars.radar_to_worlds.device)
             # shift the camera poses
-            dataset.radars.radar_to_worlds[
-                ..., :3, 3:4
-            ] = dataset.radars.radar_to_worlds @ shift_relative_to_cam.reshape(1, 4, 1)
+            dataset.radars.radar_to_worlds[..., :3, 3:4] = (
+                dataset.radars.radar_to_worlds @ shift_relative_to_cam.reshape(1, 4, 1)
+            )
 
             dataloader = FixedIndicesEvalDataloader(
                 dataset=dataset,
@@ -816,13 +857,15 @@ class RadarDatasetRender(BaseRender):
 
                     rendered_output, ber_indices = sample_radar_points(outputs["radar_output"], "nll")
                     rendered_output = transform_points_pairwise(rendered_output[:, :3], to4x4(r2w))
-                    #mean_points = sample_radar_points(outputs["radar_output"], "euclidean",  existence_threshold=EP_THRESHOLD).squeeze(0)
-                    #transformed_points = transform_points_pairwise(rendered_output, r2w)
+                    # mean_points = sample_radar_points(outputs["radar_output"], "euclidean",  existence_threshold=EP_THRESHOLD).squeeze(0)
+                    # transformed_points = transform_points_pairwise(rendered_output, r2w)
                     mb = MultiBernoulli(outputs["radar_output"])
                     figure = plot_radar_samples(gt_batch, rendered_output, None, mb, ber_indices, None, "2d")
 
                     # Get info on dynamic actors
-                    actor_b2w, scan_indices, actor_indices = pipeline.model.dynamic_actors.get_boxes2world(query_times=dataset.radars.times.to(pipeline.device))
+                    actor_b2w, scan_indices, actor_indices = pipeline.model.dynamic_actors.get_boxes2world(
+                        query_times=dataset.radars.times.to(pipeline.device)
+                    )
                     actor_sizes = pipeline.model.dynamic_actors.actor_sizes
                     actor_information = {
                         "actor_b2w": actor_b2w.to(pipeline.device),
@@ -831,15 +874,19 @@ class RadarDatasetRender(BaseRender):
                         "scan_indices": scan_indices.to(pipeline.device),
                     }
 
-                    figure = add_actor_boxes_to_figure(figure, actor_information, dataset.radars.to(pipeline.device).radar_to_worlds[camera_idx], camera_idx, "2d")
+                    figure = add_actor_boxes_to_figure(
+                        figure,
+                        actor_information,
+                        dataset.radars.to(pipeline.device).radar_to_worlds[camera_idx],
+                        camera_idx,
+                        "2d",
+                    )
 
                     rendered_output_name = self.rendered_output_names[0]
 
                     if rendered_output_name not in outputs:
                         CONSOLE.rule("Error", style="red")
-                        CONSOLE.print(
-                            f"Could not find {rendered_output_name} in the model outputs", justify="center"
-                        )
+                        CONSOLE.print(f"Could not find {rendered_output_name} in the model outputs", justify="center")
                         CONSOLE.print(
                             f"Please set --rendered-output-name to one of: {outputs.keys()}", justify="center"
                         )
@@ -857,16 +904,19 @@ class RadarDatasetRender(BaseRender):
                     # Save to file
                     figure.write_image(output_path.parent / (output_path.name + ".jpg"), width=1600, height=1200)
 
-                    update_json_file(json_file, {
-                        "filename": str(output_path.parent / (output_path.name + ".jpg")),
-                        "sensor_idx": sensor_idx.cpu().numpy().tolist(),
-                        "camera_idx": [camera_idx],
-                        "gt_points": gt_batch.cpu().numpy().tolist(),
-                        "rendered_points": rendered_output.cpu().numpy().tolist(),
-                        "existence_probabilities": mb.existence_probabilities.cpu().numpy().tolist(),
-                        "r2w": r2w.cpu().numpy().tolist(),
-                        "time": dataset.radars.times[camera_idx].cpu().numpy().tolist(),
-                    })
+                    update_json_file(
+                        json_file,
+                        {
+                            "filename": str(output_path.parent / (output_path.name + ".jpg")),
+                            "sensor_idx": sensor_idx.cpu().numpy().tolist(),
+                            "camera_idx": [camera_idx],
+                            "gt_points": gt_batch.cpu().numpy().tolist(),
+                            "rendered_points": rendered_output.cpu().numpy().tolist(),
+                            "existence_probabilities": mb.existence_probabilities.cpu().numpy().tolist(),
+                            "r2w": r2w.cpu().numpy().tolist(),
+                            "time": dataset.radars.times[camera_idx].cpu().numpy().tolist(),
+                        },
+                    )
 
         table = Table(
             title=None,
@@ -1046,8 +1096,9 @@ class FullSensorSetRender(BaseRender):
                     )
 
                     with torch.no_grad():
-
-                        outputs = pipeline.model.get_outputs_for_camera_ray_bundle(camera.generate_rays(camera_indices=0, keep_shape=True))
+                        outputs = pipeline.model.get_outputs_for_camera_ray_bundle(
+                            camera.generate_rays(camera_indices=0, keep_shape=True)
+                        )
 
                     if self.output_height is not None:
                         dataset.cameras.height[batch["image_idx"]] = torch.full_like(
@@ -1191,10 +1242,11 @@ class FullSensorSetRender(BaseRender):
                         for lidar_idx, (lidar, batch) in enumerate(
                             progress.track(lidar_dataloader, total=len(lidar_dataloader))
                         ):
-
                             points = batch["lidar"]
                             lidar_indices = torch.zeros_like(points[:, 0:1]).long()
-                            ray_bundle = lidar.generate_rays(lidar_indices=lidar_indices, points=points, keep_shape=True)
+                            ray_bundle = lidar.generate_rays(
+                                lidar_indices=lidar_indices, points=points, keep_shape=True
+                            )
                             batch["is_lidar"] = ray_bundle.metadata["is_lidar"]
                             batch["distance"] = ray_bundle.metadata["directions_norm"]
                             batch["did_return"] = ray_bundle.metadata["did_return"]
@@ -1205,9 +1257,9 @@ class FullSensorSetRender(BaseRender):
                             l2w = lidar.lidar_to_worlds[0].to(pipeline.device)
                             w2l = pose_inverse(l2w)
                             points = ray_bundle.origins + ray_bundle.directions * lidar_output["depth"]
-                            lidar_output["points"] = (w2l @ torch.cat([points, torch.ones_like(points[..., :1])], dim=-1).unsqueeze(-1)).squeeze(
-                                -1
-                            )
+                            lidar_output["points"] = (
+                                w2l @ torch.cat([points, torch.ones_like(points[..., :1])], dim=-1).unsqueeze(-1)
+                            ).squeeze(-1)
 
                             points_in_local = lidar_output["points"]
                             if "ray_drop_prob" in lidar_output:
@@ -1241,13 +1293,20 @@ class FullSensorSetRender(BaseRender):
                         for radar_idx, (radar, batch) in enumerate(
                             progress.track(radar_dataloader, total=len(radar_dataloader))
                         ):
-
                             pipeline.model.set_active_levels(radar_idx)
-                            radar_idx = batch['radar_idx']
-                            num_points = batch['radar'].shape[0]
-                            ray_indices = torch.cat([torch.full((num_points, 1), radar_idx, dtype=torch.int64, device=pipeline.device), torch.arange(num_points, device=pipeline.device).view(-1, 1)], dim=-1)
-                            batch['indices'] = ray_indices
-                            ray_bundle = radar.generate_rays(scan_indices=torch.tensor([0], device=pipeline.device)).to(pipeline.device)
+                            radar_idx = batch["radar_idx"]
+                            num_points = batch["radar"].shape[0]
+                            ray_indices = torch.cat(
+                                [
+                                    torch.full((num_points, 1), radar_idx, dtype=torch.int64, device=pipeline.device),
+                                    torch.arange(num_points, device=pipeline.device).view(-1, 1),
+                                ],
+                                dim=-1,
+                            )
+                            batch["indices"] = ray_indices
+                            ray_bundle = radar.generate_rays(scan_indices=torch.tensor([0], device=pipeline.device)).to(
+                                pipeline.device
+                            )
 
                             is_radar = torch.ones((len(ray_bundle), 1), dtype=torch.bool, device=pipeline.device)
                             ray_bundle.metadata["is_radar"], batch["is_radar"] = is_radar, is_radar
@@ -1258,18 +1317,24 @@ class FullSensorSetRender(BaseRender):
 
                             if self.calculate_and_save_metrics:
                                 with torch.no_grad():
-                                    metrics_dict, _, _ = pipeline.model.get_image_metrics_and_images(radar_output, batch)
+                                    metrics_dict, _, _ = pipeline.model.get_image_metrics_and_images(
+                                        radar_output, batch
+                                    )
                                     metrics_out["radar_" + str(radar_idx)] = metrics_dict
 
-                            rendered_output, ber_indices = sample_radar_points(radar_output["radar_output"], pipeline.model.config.loss.radar_loss_type)
-                            #r2w = radar_dataset.radars.radar_to_worlds[radar_idx].to(pipeline.device)
-                            #rendered_output = transform_points_pairwise(rendered_output[:, :3], to4x4(r2w))
+                            rendered_output, ber_indices = sample_radar_points(
+                                radar_output["radar_output"], pipeline.model.config.loss.radar_loss_type
+                            )
+                            # r2w = radar_dataset.radars.radar_to_worlds[radar_idx].to(pipeline.device)
+                            # rendered_output = transform_points_pairwise(rendered_output[:, :3], to4x4(r2w))
                             mb = MultiBernoulli(radar_output["radar_output"])
                             gt_batch = batch.copy()["radar"][:, :3].to(pipeline.device)
                             figure = plot_radar_samples(gt_batch, rendered_output, None, mb, ber_indices, None, "2d")
 
                             # Get info on dynamic actors
-                            actor_b2w, scan_indices, actor_indices = pipeline.model.dynamic_actors.get_boxes2world(query_times=radar_dataset.radars.times.to(pipeline.device))
+                            actor_b2w, scan_indices, actor_indices = pipeline.model.dynamic_actors.get_boxes2world(
+                                query_times=radar_dataset.radars.times.to(pipeline.device)
+                            )
                             actor_sizes = pipeline.model.dynamic_actors.actor_sizes
                             actor_information = {
                                 "actor_b2w": actor_b2w.to(pipeline.device),
@@ -1278,7 +1343,13 @@ class FullSensorSetRender(BaseRender):
                                 "scan_indices": scan_indices.to(pipeline.device),
                             }
 
-                            figure = add_actor_boxes_to_figure(figure, actor_information, radar_dataset.radars.to(pipeline.device).radar_to_worlds[radar_idx], radar_idx, "2d")
+                            figure = add_actor_boxes_to_figure(
+                                figure,
+                                actor_information,
+                                radar_dataset.radars.to(pipeline.device).radar_to_worlds[radar_idx],
+                                radar_idx,
+                                "2d",
+                            )
 
                             # Save to file
                             figure.write_image(output_path / (str(radar_idx) + ".jpg"), width=1800, height=1400)

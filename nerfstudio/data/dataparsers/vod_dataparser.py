@@ -1,3 +1,5 @@
+# Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
 # Copyright 2022 the Regents of the University of California, Nerfstudio Team and contributors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,27 +21,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple, Type
 
-from vod.configuration import KittiLocations
-from vod.frame import FrameDataLoader, FrameTransformMatrix
-
-
-
 import numpy as np
 import numpy.typing as npt
 import torch
 from pyquaternion import Quaternion
 from torch import Tensor
 from typing_extensions import Literal
-
+from vod.configuration import KittiLocations
+from vod.frame import FrameDataLoader, FrameTransformMatrix
 
 from nerfstudio.cameras.cameras import Cameras, CameraType
 from nerfstudio.cameras.lidars import Lidars, LidarType, transform_points
-from nerfstudio.cameras.radars import RADAR_AZIMUTH_RAY_DIVERGENCE, RADAR_ELEVATION_RAY_DIVERGENCE, Radars, RadarType
-from nerfstudio.data.dataparsers.ad_dataparser import (
-    OPENCV_TO_NERFSTUDIO,
-    ADDataParser,
-    ADDataParserConfig,
-)
+from nerfstudio.cameras.radars import Radars, RadarType
+from nerfstudio.data.dataparsers.ad_dataparser import OPENCV_TO_NERFSTUDIO, ADDataParser, ADDataParserConfig
 from nerfstudio.data.utils.lidar_elevation_mappings import VELODYNE_HDL64ES3_ELEVATION_MAPPING
 from nerfstudio.utils import poses as pose_utils
 
@@ -74,19 +68,32 @@ VOD_ELEVATION_MAPPING = {"Velodyne64": VELODYNE_HDL64ES3_ELEVATION_MAPPING}
 VOD_AZIMUT_RESOLUTION = {"Velodyne64": 0.1728}
 
 FRAME_STR_LEN = 5
-SEQUENCE_TO_FRAME_MAP = {"00": range(100, 400), "01": range(600, 900),
-                         "02": range(1400, 1700), "03": range(1850, 2150),
-                         "04": range(2220, 2520), "05": range(2532, 2798),
-                         "06": range(2900, 3200), "07": range(3277, 3575),
-                         "08": range(3575, 3610), "09": range(3650, 3950),
-                         "10": range(4050, 4350), "11": range(4387, 4652),
-                         "12": range(4660, 4960), "13": range(6334, 6571),
-                         "14": range(6571, 6759), "15": range(6800, 7100),
-                         "16": range(7600, 7900), "17": range(7900, 8198),
-                         "18": range(8198, 8481), "19": range(8482, 8749),
-                         "20": range(8749, 9049), "21": range(9100, 9400),
-                         "22": range(9518, 9776), "23": range(9776, 9930)}
-
+SEQUENCE_TO_FRAME_MAP = {
+    "00": range(100, 400),
+    "01": range(600, 900),
+    "02": range(1400, 1700),
+    "03": range(1850, 2150),
+    "04": range(2220, 2520),
+    "05": range(2532, 2798),
+    "06": range(2900, 3200),
+    "07": range(3277, 3575),
+    "08": range(3575, 3610),
+    "09": range(3650, 3950),
+    "10": range(4050, 4350),
+    "11": range(4387, 4652),
+    "12": range(4660, 4960),
+    "13": range(6334, 6571),
+    "14": range(6571, 6759),
+    "15": range(6800, 7100),
+    "16": range(7600, 7900),
+    "17": range(7900, 8198),
+    "18": range(8198, 8481),
+    "19": range(8482, 8749),
+    "20": range(8749, 9049),
+    "21": range(9100, 9400),
+    "22": range(9518, 9776),
+    "23": range(9776, 9930),
+}
 
 
 @dataclass
@@ -117,7 +124,7 @@ class VodDataParserConfig(ADDataParserConfig):
     """Whether to allow per-point timestamps."""
     compute_sensor_velocities: bool = False
     """Whether to compute sensor velocities."""
-    min_lidar_dist: Tuple[float, ...] = (2.0, 1.6, 2.0) #??
+    min_lidar_dist: Tuple[float, ...] = (2.0, 1.6, 2.0)  # ??
     """Minimum distance of lidar points."""
     lidar_elevation_mapping: Dict[str, Dict] = field(default_factory=lambda: VOD_ELEVATION_MAPPING)
     """Elevation mapping for each lidar."""
@@ -229,7 +236,11 @@ class Vod(ADDataParser):
                 # move channel from index 5 to 3
                 pc = pc[..., [0, 1, 2, 5, 3, 4]]
                 # add missing points
-                missing_points.append(self._get_missing_points(pc, interpolated_poses, "Velodyne64", dist_cutoff=0.05)[..., [0, 1, 2, 5, 4, 3]])
+                missing_points.append(
+                    self._get_missing_points(pc, interpolated_poses, "Velodyne64", dist_cutoff=0.05)[
+                        ..., [0, 1, 2, 5, 4, 3]
+                    ]
+                )
 
             # add missing points to point clouds
             point_clouds = [torch.cat([pc, missing], dim=0) for pc, missing in zip(pcs, missing_points)]
@@ -254,7 +265,7 @@ class Vod(ADDataParser):
             min_azimuth=RADAR_FOV[0][0],
             max_azimuth=RADAR_FOV[0][1],
             min_elevation=RADAR_FOV[1][0],
-            max_elevation=RADAR_FOV[1][1]
+            max_elevation=RADAR_FOV[1][1],
         )
 
         return radars, radar_filenames
@@ -293,14 +304,15 @@ class Vod(ADDataParser):
         traj_list = defaultdict(list)
 
         for frame_id in self.frame_ids:
-
-            anno_file = self.config.data / "lidar" / self.config.split / "label_2" / f"{str(frame_id).zfill(FRAME_STR_LEN)}.txt"
+            anno_file = (
+                self.config.data / "lidar" / self.config.split / "label_2" / f"{str(frame_id).zfill(FRAME_STR_LEN)}.txt"
+            )
 
             # read annotations
             try:
                 with open(anno_file, "r") as f:
                     lines = f.readlines()
-            except:
+            except Exception:
                 continue
 
             # loop over all annotations to create per agent trajectories
@@ -349,7 +361,7 @@ class Vod(ADDataParser):
             deformable = label in DEFORMABLE_CATEGORIES
             symmetric = label in SYMMETRIC_CATEGORIES
 
-            #timestamps = self.camera_times
+            # timestamps = self.camera_times
 
             # note that the boxes are in the camera coordinate system of the ego-vehicle
             for box in sorted(track, key=lambda x: x["frame"]):
@@ -401,7 +413,7 @@ class Vod(ADDataParser):
         elevation = torch.arcsin(point_cloud[:, 2] / dist)
         elevation = torch.rad2deg(elevation)
 
-        middle_elev = elevation#[middle_elev_mask]
+        middle_elev = elevation  # [middle_elev_mask]
 
         histc, bin_edges = torch.histogram(middle_elev, bins=2000)
 
@@ -563,7 +575,6 @@ class Vod(ADDataParser):
 
             self.timestamp_per_sensor[sensor] = np.array(timestamps)
 
-
     def _get_linspaced_indices(self, sensor_idxs: Tensor) -> Tuple[Tensor, Tensor]:
         # if we are using all the samples, i.e., optimizing poses, we can use the same for eval
         if self.config.train_split_fraction == 1.0:
@@ -572,8 +583,6 @@ class Vod(ADDataParser):
             )
         else:
             return super()._get_linspaced_indices(sensor_idxs)
-
-
 
 
 def get_calib(calib_path: Path) -> Dict[str, npt.NDArray[np.float32]]:

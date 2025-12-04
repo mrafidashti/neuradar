@@ -1,4 +1,6 @@
 # Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
+# Copyright 2025 the authors of NeuRadar and contributors.
 # Copyright 2024 the authors of NeuRAD and contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,13 +21,11 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import lru_cache
-import os
 from pathlib import Path
 from typing import Dict, List, Tuple, Type, Union
 
 import numpy as np
 import torch
-import h5py
 from pyquaternion import Quaternion
 from typing_extensions import Literal
 from zod import Anonymization, Camera as ZodCamera, Lidar as ZodLidar, ZodSequences
@@ -35,7 +35,7 @@ from zod.data_classes.sensor import LidarData, RadarData
 
 from nerfstudio.cameras.cameras import Cameras, CameraType
 from nerfstudio.cameras.lidars import Lidars, LidarType, transform_points
-from nerfstudio.cameras.radars import RadarType, Radars
+from nerfstudio.cameras.radars import Radars, RadarType
 from nerfstudio.data.dataparsers.ad_dataparser import OPENCV_TO_NERFSTUDIO, ADDataParser, ADDataParserConfig
 from nerfstudio.data.dataparsers.nuscenes_dataparser import WLH_TO_LWH
 from nerfstudio.data.utils.lidar_elevation_mappings import VELODYNE_128_ELEVATION_MAPPING
@@ -138,6 +138,7 @@ LANE_SHIFT_SIGN.update(
 RADAR_AZIMUTH_RAY_DIVERGENCE = 0.015
 RADAR_ELEVATION_RAY_DIVERGENCE = 0.015
 RADAR_FOV = [[-0.80, 0.80], [-0.08, 0.4]]
+
 
 @dataclass
 class ZodDataParserConfig(ADDataParserConfig):
@@ -370,7 +371,7 @@ class Zod(ADDataParser):
         lidars.lidar_to_worlds = lidars.lidar_to_worlds.float()
         return point_clouds
 
-    def _get_radars(self) -> Tuple[Radars , List[str]]:
+    def _get_radars(self) -> Tuple[Radars, List[str]]:
         """Returns radar info."""
         # The radar info for the entire sequence is saved in a single .npy file,
         # so we only have one file and one "frame".
@@ -390,7 +391,9 @@ class Zod(ADDataParser):
         # To tensors
         poses = torch.tensor(np.array(poses), dtype=torch.float32)
         times = torch.tensor(timestamps, dtype=torch.float64)
-        idxs = torch.zeros(len(timestamps), dtype=torch.int32).unsqueeze(-1) # we only use the front radar (sensor_idx = 0)
+        idxs = torch.zeros(len(timestamps), dtype=torch.int32).unsqueeze(
+            -1
+        )  # we only use the front radar (sensor_idx = 0)
 
         radars = Radars(
             radar_to_worlds=poses[:, :3, :4],
@@ -403,7 +406,7 @@ class Zod(ADDataParser):
             min_azimuth=RADAR_FOV[0][0],
             max_azimuth=RADAR_FOV[0][1],
             min_elevation=RADAR_FOV[1][0],
-            max_elevation=RADAR_FOV[1][1]
+            max_elevation=RADAR_FOV[1][1],
         )
 
         return radars, [radar_filename]

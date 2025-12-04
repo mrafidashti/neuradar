@@ -1,3 +1,17 @@
+# Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 Radar Models
 """
@@ -10,10 +24,10 @@ import torch
 from jaxtyping import Float, Int
 from torch import Tensor
 from torch.nn import Parameter
-from nerfstudio.cameras.lidars import transform_points, transform_points_pairwise
 
 import nerfstudio.utils.math
 from nerfstudio.cameras import camera_utils
+from nerfstudio.cameras.lidars import transform_points, transform_points_pairwise
 from nerfstudio.cameras.rays import RayBundle
 from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.utils.misc import strtobool
@@ -21,13 +35,14 @@ from nerfstudio.utils.tensor_dataclass import TensorDataclass
 
 TORCH_DEVICE = Union[torch.device, str]  # pylint: disable=invalid-name
 
-RADAR_AZIMUTH_RAY_DIVERGENCE = 0.0625 # theta in spherical coords
-RADAR_ELEVATION_RAY_DIVERGENCE = 0.0625 # phi in spherical coords
+RADAR_AZIMUTH_RAY_DIVERGENCE = 0.0625  # theta in spherical coords
+RADAR_ELEVATION_RAY_DIVERGENCE = 0.0625  # phi in spherical coords
 
 MIN_AZIMUTH = -0.5
 MAX_AZIMUTH = 0.5
 MIN_ELEVATION = -0.5
 MAX_ELEVATION = 0.5
+
 
 class RadarType(Enum):
     """Supported Radar Types."""
@@ -39,7 +54,7 @@ class RadarType(Enum):
 
 RADAR_MODEL_TO_TYPE = {
     "ZFFRGEN214D": RadarType.ZFFRGEN214D,
-    "ContiARS40821":RadarType.ContiARS40821,
+    "ContiARS40821": RadarType.ContiARS40821,
     "ContiFLR2": RadarType.ContiFLR2,
 }
 
@@ -91,7 +106,7 @@ class Radars(TensorDataclass):
         max_azimuth: Optional[Union[Float, Float[Tensor, "*num_radars 1"]]] = None,
         min_elevation: Optional[Union[Float, Float[Tensor, "*num_radars 1"]]] = None,
         max_elevation: Optional[Union[Float, Float[Tensor, "*num_radars 1"]]] = None,
-        valid_radar_distance_threshold: float = 300, # do we need this?
+        valid_radar_distance_threshold: float = 300,  # do we need this?
     ) -> None:
         """Initializes the Lidars object.
 
@@ -111,7 +126,7 @@ class Radars(TensorDataclass):
         self.radar_to_worlds = radar_to_worlds
 
         # @dataclass's post_init will take care of broadcasting
-        self.radar_type = self._init_get_radar_type(radar_type) # type: ignore
+        self.radar_type = self._init_get_radar_type(radar_type)  # type: ignore
         self.times = self._init_get_times(times)
 
         self.metadata = metadata
@@ -214,7 +229,6 @@ class Radars(TensorDataclass):
         keep_shape: Optional[bool] = None,
         aabb_box: Optional[SceneBox] = None,
     ) -> RayBundle:
-
         # If zero dimensional, we need to unsqueeze to get a batch dimension and then squeeze later
         if not self.shape:
             radars = self.reshape((1,))
@@ -262,15 +276,29 @@ class Radars(TensorDataclass):
         scan_indices_for_rays = torch.empty(0, dtype=torch.int64, device=self.device)
         for index in scan_indices:
             # 2d matrix of azimuths and evalations <--> rays for this scan
-            azimuths = torch.arange(self.min_azimuth[index, 0], self.max_azimuth[index, 0], self.radar_azimuth_ray_divergence[index, 0], device=self.device)
-            elevations = torch.arange(self.min_elevation[index, 0], self.max_elevation[index, 0], self.radar_elevation_ray_divergence[index, 0], device=self.device)
-            grid_azimuths, grid_elevations = torch.meshgrid(azimuths, elevations, indexing="ij")  # meshgrid of azimuths and elevations
+            azimuths = torch.arange(
+                self.min_azimuth[index, 0],
+                self.max_azimuth[index, 0],
+                self.radar_azimuth_ray_divergence[index, 0],
+                device=self.device,
+            )
+            elevations = torch.arange(
+                self.min_elevation[index, 0],
+                self.max_elevation[index, 0],
+                self.radar_elevation_ray_divergence[index, 0],
+                device=self.device,
+            )
+            grid_azimuths, grid_elevations = torch.meshgrid(
+                azimuths, elevations, indexing="ij"
+            )  # meshgrid of azimuths and elevations
             directions_spher_scan = torch.stack((grid_azimuths.flatten(), grid_elevations.flatten()), dim=1)  # (N, 2)
             directions_spher = torch.cat((directions_spher, directions_spher_scan))
 
             # record the associations between the rays and scans
             num_rays_scan = directions_spher_scan.shape[0]
-            scan_indices_for_rays = torch.cat((scan_indices_for_rays, torch.full((num_rays_scan,),  index, dtype=torch.int64, device=self.device)))
+            scan_indices_for_rays = torch.cat(
+                (scan_indices_for_rays, torch.full((num_rays_scan,), index, dtype=torch.int64, device=self.device))
+            )
         num_rays_shape = scan_indices_for_rays.shape  # (N,)
 
         # r2w matrix
@@ -287,11 +315,15 @@ class Radars(TensorDataclass):
         directions[:, 1] = torch.cos(directions_spher[:, 1]) * torch.sin(directions_spher[:, 0])
         directions[:, 2] = torch.sin(directions_spher[:, 1])
         directions = transform_points_pairwise(directions, r2w)  # (N,3)
-        directions, distance = camera_utils.normalize_with_norm(directions - origins, -1)  # all the values in distance are 1.00; should keep it?
+        directions, distance = camera_utils.normalize_with_norm(
+            directions - origins, -1
+        )  # all the values in distance are 1.00; should keep it?
         assert directions.shape == num_rays_shape + (3,)
 
         # pixel_area
-        dx = self.radar_azimuth_ray_divergence[scan_indices_for_rays] / 5  # (N,1); 5 is a hyperparameter, which could be tuned
+        dx = (
+            self.radar_azimuth_ray_divergence[scan_indices_for_rays] / 5
+        )  # (N,1); 5 is a hyperparameter, which could be tuned
         dy = self.radar_elevation_ray_divergence[scan_indices_for_rays] / 5
         pixel_area = dx * dy  # (N,1)
         assert pixel_area.shape == num_rays_shape + (1,)
@@ -306,7 +338,9 @@ class Radars(TensorDataclass):
             metadata["directions_norm"] = distance.detach()
         else:
             metadata = {"directions_norm": distance.detach()}
-        metadata["did_return"] = torch.ones((directions.shape[0], 1), dtype=torch.bool, device=self.device).detach()  # (N,1)
+        metadata["did_return"] = torch.ones(
+            (directions.shape[0], 1), dtype=torch.bool, device=self.device
+        ).detach()  # (N,1)
         metadata["directions_spher"] = directions_spher  # (N,2)
 
         # times
@@ -318,8 +352,9 @@ class Radars(TensorDataclass):
             pixel_area=pixel_area,
             camera_indices=scan_indices_for_rays.unsqueeze(-1),
             times=times,
-            metadata=metadata, # type: ignore
-            fars=torch.ones_like(pixel_area, device=self.device) * 1_000_000,  # TODO: is this cheating? (from lidars.py)
+            metadata=metadata,  # type: ignore
+            fars=torch.ones_like(pixel_area, device=self.device)
+            * 1_000_000,  # TODO: is this cheating? (from lidars.py)
         )
 
     def to_json(self, radar_idx: int, sensor_idx: int, point_cloud: Tensor, max_points: Optional[int] = None) -> Dict:

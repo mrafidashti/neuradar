@@ -1,4 +1,6 @@
 # Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
+# Copyright 2025 the authors of NeuRadar and contributors.
 # Copyright 2024 the authors of NeuRAD and contributors.
 # Copyright 2022 the Regents of the University of California, Nerfstudio Team and contributors. All rights reserved.
 #
@@ -612,14 +614,17 @@ class RadarPointSamplerConfig(PixelSamplerConfig):
     """Target class to instantiate."""
     num_radar_scans_per_batch: int = 1
 
+
 class RadarPointSampler(PixelSampler):
     """Samples point from a point cloud."""
 
     config: RadarPointSamplerConfig
-    
+
     def __init__(self, config: PixelSamplerConfig, **kwargs) -> None:
         super().__init__(config, **kwargs)
-        self.config.num_radar_scans_per_batch = self.kwargs.get("num_radar_scans_per_batch", self.config.num_radar_scans_per_batch)
+        self.config.num_radar_scans_per_batch = self.kwargs.get(
+            "num_radar_scans_per_batch", self.config.num_radar_scans_per_batch
+        )
 
     def collate_image_dataset_batch(self, batch: Dict):
         """
@@ -641,7 +646,7 @@ class RadarPointSampler(PixelSampler):
             indices = torch.zeros((n_scans,), device=device).long()
             indices[:num_radars] = torch.arange(num_radars, device=device)
         else:
-            indices = torch.randint(0, num_radars-1, (n_scans,), device=device)
+            indices = torch.randint(0, num_radars - 1, (n_scans,), device=device)
 
         radar_indices = torch.empty(0, device=device, dtype=torch.int64)
         point_indices = torch.empty(0, device=device, dtype=torch.int64)
@@ -649,15 +654,19 @@ class RadarPointSampler(PixelSampler):
             n_points = batch["points_per_radar"][index]
             radar_indices = torch.cat((radar_indices, torch.full((n_points,), index, device=device, dtype=torch.int64)))
             point_indices = torch.cat((point_indices, torch.arange(n_points, device=device, dtype=torch.int64)))
-        indices_v2 = torch.stack((radar_indices, point_indices), dim=1)  # (num_rays, 2), consiting of [scan_indice, point_local_indice]
-        
+        indices_v2 = torch.stack(
+            (radar_indices, point_indices), dim=1
+        )  # (num_rays, 2), consiting of [scan_indice, point_local_indice]
+
         cum_points_per_radar = torch.zeros((num_radars,), device=device, dtype=torch.int64)
         cum_points_per_radar[1:] = torch.cumsum(batch["points_per_radar"], dim=0)[:-1]
         flat_indices = torch.zeros_like(point_indices, device=device)
         curr_index = 0
         for index in indices:
             n_points = batch["points_per_radar"][index]
-            flat_indices[curr_index:curr_index+n_points] = point_indices[curr_index:curr_index+n_points] + cum_points_per_radar[index]
+            flat_indices[curr_index : curr_index + n_points] = (
+                point_indices[curr_index : curr_index + n_points] + cum_points_per_radar[index]
+            )
             curr_index += n_points
         all_radars = batch["radar"][flat_indices]  # (num_rays, 9) of radar point features
 
@@ -669,7 +678,7 @@ class RadarPointSampler(PixelSampler):
         }
         collated_batch["radar"] = all_radars
         collated_batch["indices"] = indices_v2
-        
+
         return collated_batch, indices
 
     def sample(self, radar_batch: Dict):

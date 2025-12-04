@@ -1,4 +1,6 @@
 # Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
+# Copyright 2025 the authors of NeuRadar and contributors.
 # Copyright 2024 the authors of NeuRAD and contributors.
 # Copyright 2022 the Regents of the University of California, Nerfstudio Team and contributors. All rights reserved.
 #
@@ -41,10 +43,10 @@ from nerfstudio.engine.trainer import TrainerConfig
 from nerfstudio.models.lidar_nerfacto import LidarNerfactoModelConfig
 from nerfstudio.models.nerfacto import NerfactoModelConfig
 from nerfstudio.models.neurad import NeuRADModelConfig
-from nerfstudio.models.splatfacto import SplatfactoModelConfig
 from nerfstudio.models.neuradar import NeuRadarModelConfig
-from nerfstudio.pipelines.ad_pipeline import ADPipelineConfig
+from nerfstudio.models.splatfacto import SplatfactoModelConfig
 from nerfstudio.pipelines.ad_neuradar_pipeline import ADNeuRadarPipelineConfig
+from nerfstudio.pipelines.ad_pipeline import ADPipelineConfig
 from nerfstudio.pipelines.base_pipeline import VanillaPipelineConfig
 from nerfstudio.plugins.registry import discover_methods
 

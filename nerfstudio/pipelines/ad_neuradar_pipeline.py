@@ -1,4 +1,6 @@
 # Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
+# Copyright 2025 the authors of NeuRadar and contributors.
 # Copyright 2024 the authors of NeuRAD and contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,8 +23,8 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn, T
 
 from nerfstudio.data.datamanagers.ad_neuradar_datamanager import ADNeuRadarDataManager, ADNeuRadarDataManagerConfig
 from nerfstudio.models.ad_model import ADModel
-from nerfstudio.pipelines.base_pipeline import VanillaPipeline
 from nerfstudio.pipelines.ad_pipeline import ADPipeline, ADPipelineConfig
+from nerfstudio.pipelines.base_pipeline import VanillaPipeline
 from nerfstudio.utils import profiler
 
 
@@ -34,6 +36,7 @@ class ADNeuRadarPipelineConfig(ADPipelineConfig):
     """target class to instantiate"""
     datamanager: ADNeuRadarDataManagerConfig = field(default_factory=ADNeuRadarDataManagerConfig)
     """specifies the datamanager config"""
+
 
 class ADNeuRadarPipeline(ADPipeline):
     """Pipeline for training AD models."""
@@ -123,9 +126,11 @@ class ADNeuRadarPipeline(ADPipeline):
         radar_idx, radar_ray_bundle, radar_batch = self.datamanager.next_eval_radar(step)
         radar_outputs = self.model.get_outputs_for_camera_ray_bundle(radar_ray_bundle)
         r2w = self.datamanager.eval_radar_dataset.radars.radar_to_worlds[radar_idx]
-        radar_metrics_dict, _, radar_dict = self.model.get_image_metrics_and_images(radar_outputs, radar_batch, self.datamanager.eval_radar_dataset.radars.times, radar_idx, r2w)
+        radar_metrics_dict, _, radar_dict = self.model.get_image_metrics_and_images(
+            radar_outputs, radar_batch, self.datamanager.eval_radar_dataset.radars.times, radar_idx, r2w
+        )
         assert "radar_idx" not in radar_metrics_dict
-        radar_metrics_dict["radar_idx"] = radar_batch['radar_idx']
+        radar_metrics_dict["radar_idx"] = radar_batch["radar_idx"]
         assert not set(radar_metrics_dict.keys()).intersection(metrics_dict.keys())
         metrics_dict.update(radar_metrics_dict)
 
@@ -148,24 +153,33 @@ class ADNeuRadarPipeline(ADPipeline):
             device = self.datamanager.fixed_indices_eval_radar_dataloader.device
             sampling_rounds = 1 if self.model.config.loss.radar_loss_type == "euclidean" else 10
             idx = 0
-            metrics_dict_arr = {"chamfer_distance": torch.zeros((num_radar, sampling_rounds)).to(device),
-                                "emd_distance": torch.zeros((num_radar, sampling_rounds)).to(device),}
+            metrics_dict_arr = {
+                "chamfer_distance": torch.zeros((num_radar, sampling_rounds)).to(device),
+                "emd_distance": torch.zeros((num_radar, sampling_rounds)).to(device),
+            }
 
             task = progress.add_task("[green]Evaluating all eval radar point clouds...", total=num_radar)
             for _, batch in self.datamanager.fixed_indices_eval_radar_dataloader:
-
-                radar_idx = batch['radar_idx']
-                num_points = batch['radar'].shape[0]
-                ray_indices = torch.cat([torch.full((num_points, 1), radar_idx, dtype=torch.int64, device=self.device), torch.arange(num_points, device=self.device).view(-1, 1)], dim=-1)
-                batch['indices'] = ray_indices
+                radar_idx = batch["radar_idx"]
+                num_points = batch["radar"].shape[0]
+                ray_indices = torch.cat(
+                    [
+                        torch.full((num_points, 1), radar_idx, dtype=torch.int64, device=self.device),
+                        torch.arange(num_points, device=self.device).view(-1, 1),
+                    ],
+                    dim=-1,
+                )
+                batch["indices"] = ray_indices
                 scan_index = torch.tensor([radar_idx])
-                ray_bundle = self.datamanager.eval_radar_dataset.radars.generate_rays(scan_indices=scan_index).to(self.device)
+                ray_bundle = self.datamanager.eval_radar_dataset.radars.generate_rays(scan_indices=scan_index).to(
+                    self.device
+                )
 
                 ray_bundle.metadata["is_radar"] = torch.ones((*ray_bundle.shape, 1), device=device, dtype=torch.bool)
                 outputs = self.model.get_outputs_for_camera_ray_bundle(ray_bundle)
                 batch["distance"] = ray_bundle.metadata["directions_norm"]
 
-                metrics_dict = self.model.get_radar_metrics(outputs, batch, sampling_rounds) # type: ignore
+                metrics_dict = self.model.get_radar_metrics(outputs, batch, sampling_rounds)  # type: ignore
                 for key in metrics_dict_arr.keys():
                     metrics_dict_arr[key][idx] = metrics_dict[key]
                 idx += 1
@@ -174,7 +188,7 @@ class ADNeuRadarPipeline(ADPipeline):
         self.train()
         avg_eval_radar_metrics = {}
         for key in metrics_dict_arr.keys():
-            avg_eval_radar_metrics[key + '_mean'] = metrics_dict_arr[key].mean()
-            avg_eval_radar_metrics[key + '_median'] = metrics_dict_arr[key].median()
-            avg_eval_radar_metrics[key + '_std'] = metrics_dict_arr[key].mean(dim=1).std()
+            avg_eval_radar_metrics[key + "_mean"] = metrics_dict_arr[key].mean()
+            avg_eval_radar_metrics[key + "_median"] = metrics_dict_arr[key].median()
+            avg_eval_radar_metrics[key + "_std"] = metrics_dict_arr[key].mean(dim=1).std()
         return avg_eval_radar_metrics

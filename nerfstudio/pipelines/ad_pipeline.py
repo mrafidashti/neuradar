@@ -1,3 +1,5 @@
+# Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
 # Copyright 2024 the authors of NeuRAD and contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,11 +30,11 @@ from nerfstudio.data.datamanagers.ad_datamanager import ADDataManager, ADDataMan
 from nerfstudio.data.datamanagers.base_datamanager import VanillaDataManager
 from nerfstudio.data.datamanagers.parallel_datamanager import ParallelDataManager
 from nerfstudio.models.ad_model import ADModel, ADModelConfig
+from nerfstudio.models.neurad import NeuRADModel
+from nerfstudio.models.neuradar import NeuRadarModel
 from nerfstudio.pipelines.base_pipeline import VanillaPipeline, VanillaPipelineConfig
 from nerfstudio.utils import profiler
 
-from nerfstudio.models.neurad import NeuRADModel
-from nerfstudio.models.neuradar import NeuRadarModel
 
 @dataclass
 class ADPipelineConfig(VanillaPipelineConfig):
@@ -196,13 +198,13 @@ class ADPipeline(VanillaPipeline):
                 # Generate images from the original rays
                 camera_ray_bundle = camera.generate_rays(camera_indices=0, keep_shape=True)
                 outputs = self.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
-                
+
                 # Compute metrics for the original image
                 if isinstance(self.model, NeuRADModel):
                     metrics_dict, images_dict = self.model.get_image_metrics_and_images(outputs, batch)
                 elif isinstance(self.model, NeuRadarModel):
                     metrics_dict, images_dict, _ = self.model.get_image_metrics_and_images(outputs, batch)
-                
+
                 if output_path is not None:
                     camera_indices = camera_ray_bundle.camera_indices
                     assert camera_indices is not None
@@ -233,7 +235,7 @@ class ADPipeline(VanillaPipeline):
                     metrics_dict, _ = self.model.get_image_metrics_and_images(outputs, batch)
                 elif isinstance(self.model, NeuRadarModel):
                     metrics_dict, _, _ = self.model.get_image_metrics_and_images(outputs, batch)
-                
+
                 metrics_dict_list.append(metrics_dict)
                 progress.advance(task)
 

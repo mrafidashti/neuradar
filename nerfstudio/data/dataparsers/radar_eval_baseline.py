@@ -1,22 +1,35 @@
+# Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Script to investigate the previous Radar frame as a baseline for the evaluation of RadarNeRF."""
 
-import numpy as np
 import argparse
+
 import h5py
 import matplotlib.pyplot as plt
-
-from sklearn.neighbors import NearestNeighbors
-from nerfstudio.model_components.gospa import calculate_gospa
-from scipy.stats import wasserstein_distance_nd
-
+import numpy as np
 import pyquaternion
 from nuscenes.nuscenes import NuScenes as NuScenesDatabase
 from nuscenes.utils.data_classes import RadarPointCloud
+from scipy.stats import wasserstein_distance_nd
+from sklearn.neighbors import NearestNeighbors
 
 # from vod.configuration import KittiLocations
 # from vod.frame import FrameDataLoader, FrameTransformMatrix
-
 from zod import ZodSequences
+
+from nerfstudio.model_components.gospa import calculate_gospa
 
 ROOT_PATH = "/home/s0001331/"
 NUSCENES_PATH = ROOT_PATH + "repos/data/nuscenes/"
@@ -25,26 +38,40 @@ ZOD_PATH = ROOT_PATH + "mnt/staging/dataset_donation/round_2"
 
 DATASET_SEQUENCE_NUMBER_FILL_MAP = {"nuscenes": 4, "vod": 2, "zod": 6}
 
-#NUSCENES_RADARS = ("FRONT", "FRONT_LEFT", "FRONT_RIGHT", "BACK_LEFT", "BACK_RIGHT")
-NUSCENES_RADARS = ("FRONT")
+# NUSCENES_RADARS = ("FRONT", "FRONT_LEFT", "FRONT_RIGHT", "BACK_LEFT", "BACK_RIGHT")
+NUSCENES_RADARS = "FRONT"
 
 VOD_FRAME_STR_LEN = 5
 VOD_DATA_FREQUENCY = 10
-SEQUENCE_TO_FRAME_MAP = {"00": range(0, 544), "01": range(545, 1312),
-                         "02": range(1314, 1803), "03": range(1803, 2200),
-                         "04": range(2220, 2532), "05": range(2532, 2798),
-                         "06": range(2798, 3277), "07": range(3277, 3575),
-                         "08": range(3575, 3610), "09": range(3610, 4048),
-                         "10": range(4049, 4387), "11": range(4387, 4652),
-                         "12": range(4653, 5086), "13": range(6334, 6571),
-                         "14": range(6571, 6759), "15": range(6759, 7543),
-                         "16": range(7543, 7900), "17": range(7900, 8198),
-                         "18": range(8198, 8481), "19": range(8482, 8749),
-                         "20": range(8749, 9096), "21": range(9096, 9518),
-                         "22": range(9518, 9776), "23": range(9776, 9930)}
+SEQUENCE_TO_FRAME_MAP = {
+    "00": range(0, 544),
+    "01": range(545, 1312),
+    "02": range(1314, 1803),
+    "03": range(1803, 2200),
+    "04": range(2220, 2532),
+    "05": range(2532, 2798),
+    "06": range(2798, 3277),
+    "07": range(3277, 3575),
+    "08": range(3575, 3610),
+    "09": range(3610, 4048),
+    "10": range(4049, 4387),
+    "11": range(4387, 4652),
+    "12": range(4653, 5086),
+    "13": range(6334, 6571),
+    "14": range(6571, 6759),
+    "15": range(6759, 7543),
+    "16": range(7543, 7900),
+    "17": range(7900, 8198),
+    "18": range(8198, 8481),
+    "19": range(8482, 8749),
+    "20": range(8749, 9096),
+    "21": range(9096, 9518),
+    "22": range(9518, 9776),
+    "23": range(9776, 9930),
+}
+
 
 def _parse_arguments():
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--sequence", "-s", type=int, default=103)
@@ -54,6 +81,7 @@ def _parse_arguments():
     args = parser.parse_args()
 
     return args
+
 
 def get_radar_scans(sequence: str, dataset: str):
     # if dataset == "nuscenes":
@@ -65,8 +93,8 @@ def get_radar_scans(sequence: str, dataset: str):
     else:
         raise ValueError(f"Dataset {dataset} not supported.")
 
-def get_radar_scans_nuscenes(sequence: str):
 
+def get_radar_scans_nuscenes(sequence: str):
     nusc = NuScenesDatabase(
         version="v1.0-mini",
         dataroot=NUSCENES_PATH,
@@ -78,7 +106,7 @@ def get_radar_scans_nuscenes(sequence: str):
     radar_pcs, poses, times = [], [], []
     first_sample = nusc.get("sample", scene["first_sample_token"])
 
-    #for radar in NUSCENES_RADARS:
+    # for radar in NUSCENES_RADARS:
     radar = NUSCENES_RADARS
     for radar_data in _find_all_sample_data_nuscenes(nusc, first_sample["data"]["RADAR_" + radar]):
         calibrated_sensor_data = nusc.get("calibrated_sensor", radar_data["calibrated_sensor_token"])
@@ -98,32 +126,31 @@ def get_radar_scans_nuscenes(sequence: str):
 
     return radar_pcs, poses, np.array(times, dtype=np.float64)
 
-# def get_radar_scans_vod(sequence: str):
+    # def get_radar_scans_vod(sequence: str):
 
-#     kitti_locations = KittiLocations(root_dir=VOD_PATH)
-#     frames = SEQUENCE_TO_FRAME_MAP[sequence]
+    #     kitti_locations = KittiLocations(root_dir=VOD_PATH)
+    #     frames = SEQUENCE_TO_FRAME_MAP[sequence]
 
-#     camera_times = np.zeros((len(frames)))
-#     radar_scans = np.zeros((len(frames)), dtype=np.ndarray)
-#     camera_to_odom = np.zeros((len(frames), 4, 4))
-#     radar_to_cam = np.zeros((len(frames), 4, 4))
-#     for frame in frames:
-#         camera_times[frame - frames[0]] = (frame - frames[0]) / VOD_DATA_FREQUENCY
-#         frame_str = str(frame).zfill(VOD_FRAME_STR_LEN)
-#         frame_data = FrameDataLoader(kitti_locations=kitti_locations, frame_number=frame_str)
-#         transforms = FrameTransformMatrix(frame_data)
-#         camera_to_odom[frame - frames[0]] = transforms.t_odom_camera
-#         radar_to_cam[frame - frames[0]] = transforms.t_camera_radar
-#         radar_scans[frame - frames[0]] = frame_data.radar_data
+    #     camera_times = np.zeros((len(frames)))
+    #     radar_scans = np.zeros((len(frames)), dtype=np.ndarray)
+    #     camera_to_odom = np.zeros((len(frames), 4, 4))
+    #     radar_to_cam = np.zeros((len(frames), 4, 4))
+    #     for frame in frames:
+    #         camera_times[frame - frames[0]] = (frame - frames[0]) / VOD_DATA_FREQUENCY
+    #         frame_str = str(frame).zfill(VOD_FRAME_STR_LEN)
+    #         frame_data = FrameDataLoader(kitti_locations=kitti_locations, frame_number=frame_str)
+    #         transforms = FrameTransformMatrix(frame_data)
+    #         camera_to_odom[frame - frames[0]] = transforms.t_odom_camera
+    #         radar_to_cam[frame - frames[0]] = transforms.t_camera_radar
+    #         radar_scans[frame - frames[0]] = frame_data.radar_data
 
-#     times = camera_times.astype(np.float64)
-#     poses = (camera_to_odom @ radar_to_cam).astype(np.float32)
-
+    #     times = camera_times.astype(np.float64)
+    #     poses = (camera_to_odom @ radar_to_cam).astype(np.float32)
 
     return radar_scans, poses, times
 
-def get_radar_scans_zod(sequence: str):
 
+def get_radar_scans_zod(sequence: str):
     zod_parser = ZodSequences(dataset_root=ZOD_PATH, version="full", mp=False)
     assert sequence in zod_parser.get_all_ids(), f"Sequence {sequence} not found in dataset"
 
@@ -132,7 +159,13 @@ def get_radar_scans_zod(sequence: str):
     start_time = np.float64(zod_seq.info.start_time.timestamp() * 1e9)
     end_time = np.float64(zod_seq.info.end_time.timestamp() * 1e9)
 
-    radar_file = ZOD_PATH + "/sequences/" + sequence + "/internal/radar_flr/" + "000005_romeo_FC_2022-08-30T09:46:09.180289Z.hdf5"
+    radar_file = (
+        ZOD_PATH
+        + "/sequences/"
+        + sequence
+        + "/internal/radar_flr/"
+        + "000005_romeo_FC_2022-08-30T09:46:09.180289Z.hdf5"
+    )
 
     radar_pcs, times, poses = [], [], []
 
@@ -193,17 +226,18 @@ def get_radar_scans_zod(sequence: str):
 
     return radar_pcs, poses, times
 
+
 def get_metrics_between_radar_scans(radar_scans, poses, times):
+    chamfers, gospas = [], []
 
-        chamfers, gospas = [], []
+    for i in range(1, len(radar_scans)):
+        chamfer = chamfer_distance(radar_scans[i - 1][:, :3], radar_scans[i][:, :3])
+        gospa = calculate_gospa(radar_scans[i - 1][:, :3], radar_scans[i][:, :3], 1, 1)[0]
+        chamfers.append(chamfer)
+        gospas.append(gospa)
 
-        for i in range(1, len(radar_scans)):
-            chamfer = chamfer_distance(radar_scans[i - 1][:, :3], radar_scans[i][:, :3])
-            gospa = calculate_gospa(radar_scans[i - 1][:, :3], radar_scans[i][:, :3], 1, 1)[0]
-            chamfers.append(chamfer)
-            gospas.append(gospa)
+    return chamfers, gospas
 
-        return chamfers, gospas
 
 def _find_all_sample_data_nuscenes(nusc, sample_data_token):
     """Finds all sample data from a given sample token."""
@@ -221,6 +255,7 @@ def _find_all_sample_data_nuscenes(nusc, sample_data_token):
         all_sample_data.append(sd)
     return all_sample_data
 
+
 def _rotation_translation_to_pose(r_quat, t_vec):
     """Convert quaternion rotation and translation vectors to 4x4 matrix"""
     pose = np.eye(4)
@@ -228,7 +263,8 @@ def _rotation_translation_to_pose(r_quat, t_vec):
     pose[:3, 3] = t_vec
     return pose
 
-def chamfer_distance(x, y, metric='l2', direction='bi'):
+
+def chamfer_distance(x, y, metric="l2", direction="bi"):
     """Chamfer distance between two point clouds
     Parameters
     ----------
@@ -250,40 +286,47 @@ def chamfer_distance(x, y, metric='l2', direction='bi'):
             sum_{x_i \in x}{\min_{y_j \in y}{||x_i-y_j||**2}} + sum_{y_j \in y}{\min_{x_i \in x}{||x_i-y_j||**2}}
     """
 
-    if direction=='y_to_x':
-        x_nn = NearestNeighbors(n_neighbors=1, leaf_size=1, algorithm='kd_tree', metric=metric).fit(x)
+    if direction == "y_to_x":
+        x_nn = NearestNeighbors(n_neighbors=1, leaf_size=1, algorithm="kd_tree", metric=metric).fit(x)
         min_y_to_x = x_nn.kneighbors(y)[0]
         chamfer_dist = np.mean(min_y_to_x)
-    elif direction=='x_to_y':
-        y_nn = NearestNeighbors(n_neighbors=1, leaf_size=1, algorithm='kd_tree', metric=metric).fit(y)
+    elif direction == "x_to_y":
+        y_nn = NearestNeighbors(n_neighbors=1, leaf_size=1, algorithm="kd_tree", metric=metric).fit(y)
         min_x_to_y = y_nn.kneighbors(x)[0]
         chamfer_dist = np.mean(min_x_to_y)
-    elif direction=='bi':
-        x_nn = NearestNeighbors(n_neighbors=1, leaf_size=1, algorithm='kd_tree', metric=metric).fit(x)
+    elif direction == "bi":
+        x_nn = NearestNeighbors(n_neighbors=1, leaf_size=1, algorithm="kd_tree", metric=metric).fit(x)
         min_y_to_x = x_nn.kneighbors(y)[0]
-        y_nn = NearestNeighbors(n_neighbors=1, leaf_size=1, algorithm='kd_tree', metric=metric).fit(y)
+        y_nn = NearestNeighbors(n_neighbors=1, leaf_size=1, algorithm="kd_tree", metric=metric).fit(y)
         min_x_to_y = y_nn.kneighbors(x)[0]
         chamfer_dist = np.mean(min_y_to_x) + np.mean(min_x_to_y)
     else:
-        raise ValueError("Invalid direction type. Supported types: \'y_x\', \'x_y\', \'bi\'")
+        raise ValueError("Invalid direction type. Supported types: 'y_x', 'x_y', 'bi'")
 
     return chamfer_dist
+
 
 def emd_distance(x, y):
     # Compute Wasserstein distance
     distance = wasserstein_distance_nd(x, y)
     return distance
 
+
 def calculate_metrics_baseline(radar_scans, poses, times):
     chamfers, gospas = get_metrics_between_radar_scans(radar_scans, poses, times)
-    print(f"Chamfer distances are between {np.min(chamfers)} (index {np.argmin(chamfers)}) and {np.max(chamfers)} (index {np.argmax(chamfers)})")
-    print(f"GOSPA distances are between {np.min(gospas)} (index {np.argmin(gospas)}) and {np.max(gospas)} (index {np.argmax(gospas)})")
+    print(
+        f"Chamfer distances are between {np.min(chamfers)} (index {np.argmin(chamfers)}) and {np.max(chamfers)} (index {np.argmax(chamfers)})"
+    )
+    print(
+        f"GOSPA distances are between {np.min(gospas)} (index {np.argmin(gospas)}) and {np.max(gospas)} (index {np.argmax(gospas)})"
+    )
 
     plt.hist(chamfers, bins=100)
     plt.show()
 
     plt.hist(gospas, bins=100)
     plt.show()
+
 
 def main():
     """Main function to evaluate RadarNeRF."""
@@ -294,6 +337,7 @@ def main():
     radar_scans, poses, times = get_radar_scans(sequence, args.dataset)
 
     calculate_metrics_baseline(radar_scans, poses, times)
+
 
 if __name__ == "__main__":
     main()

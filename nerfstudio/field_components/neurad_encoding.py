@@ -1,3 +1,5 @@
+# Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
 # Copyright 2024 the authors of NeuRAD and contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -243,7 +245,11 @@ class NeuRADHashEncoding(nn.Module):
         close_to_line_and_valid_mask = (distance < actor_radii) & valid  # n_rays x n_actors
         ray_idx, actor_idx = close_to_line_and_valid_mask.nonzero(as_tuple=False).T  # N x 2 (ray_idx, actor_idx)
         if ray_idx.shape[0] == 0:
-            return torch.empty(0, dtype=torch.int64), torch.empty(0, dtype=torch.int64), torch.empty(0, dtype=torch.int64)
+            return (
+                torch.empty(0, dtype=torch.int64),
+                torch.empty(0, dtype=torch.int64),
+                torch.empty(0, dtype=torch.int64),
+            )
 
         sample_pos = sample_mean_pos[ray_idx]  # N x n_samples x 3
         actor_pos = boxes2world[ray_idx, actor_idx, :3, 3].unsqueeze(-2).repeat(1, sample_pos.shape[-2], 1)  # N x 3

@@ -1,3 +1,5 @@
+# Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
 # Copyright 2024 the authors of NeuRAD and contributors.
 # Copyright 2022 the Regents of the University of California, Nerfstudio Team and contributors. All rights reserved.
 #
@@ -211,8 +213,14 @@ class EvalDataloader(DataLoader):
             ray_bundle = self.sensors.generate_rays(lidar_idx, points=point_cloud)
         elif isinstance(self.dataset, RadarDataset):
             point_cloud = self.dataset.point_clouds[image_idx]
-            radar_idx = torch.cat((torch.full((point_cloud.shape[0], 1), image_idx, dtype=torch.int64, device=self.device), torch.arange(point_cloud.shape[0], device=self.device).view(-1, 1)), dim=-1)
-            ray_bundle = self.sensors.generate_rays(scan_indices=torch.tensor([image_idx], device=self.device)) # type: ignore
+            radar_idx = torch.cat(
+                (
+                    torch.full((point_cloud.shape[0], 1), image_idx, dtype=torch.int64, device=self.device),
+                    torch.arange(point_cloud.shape[0], device=self.device).view(-1, 1),
+                ),
+                dim=-1,
+            )
+            ray_bundle = self.sensors.generate_rays(scan_indices=torch.tensor([image_idx], device=self.device))  # type: ignore
             batch = self.dataset[image_idx]
             batch["indices"] = radar_idx
             batch = get_dict_to_torch(batch, device=self.device, exclude=["image"])

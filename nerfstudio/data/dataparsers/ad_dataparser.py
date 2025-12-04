@@ -1,4 +1,6 @@
 # Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
+# Copyright 2025 the authors of NeuRadar and contributors.
 # Copyright 2024 the authors of NeuRAD and contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,8 +35,6 @@ from nerfstudio.data.dataparsers.base_dataparser import DataParser, DataParserCo
 from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.utils import poses as pose_utils
 from nerfstudio.utils.poses import interpolate_trajectories, inverse, multiply as pose_multiply, to4x4
-
-from nerfstudio.data.dataparsers.data_plot_utils import plot_data_for_iteration
 
 SensorData = TypeVar("SensorData", Cameras, Lidars)
 
@@ -187,7 +187,15 @@ class ADDataParser(DataParser):
         trajectories = self._get_actor_trajectories() if self.config.load_cuboids else []
 
         # use dataset fraction to filter data
-        cameras, img_filenames, lidars, lidar_filenames, radars, radar_filenames, trajectories = self._filter_based_on_time(
+        (
+            cameras,
+            img_filenames,
+            lidars,
+            lidar_filenames,
+            radars,
+            radar_filenames,
+            trajectories,
+        ) = self._filter_based_on_time(
             cameras, img_filenames, lidars, lidar_filenames, radars, radar_filenames, trajectories
         )
 
@@ -208,13 +216,17 @@ class ADDataParser(DataParser):
         if set(lidar_sensor_idxs.tolist()).intersection(set(cam_sensor_idxs.tolist())):
             assert cam_sensor_idxs.max() == cam_sensor_idxs.numel() - 1, "Sensor idxs must be contiguous"
             lidars.metadata["sensor_idxs"] += cam_sensor_idxs.numel()
-        camera_lidar_idxs = torch.cat((cameras.metadata["sensor_idxs"].unique(), lidars.metadata["sensor_idxs"].unique()))
+        camera_lidar_idxs = torch.cat(
+            (cameras.metadata["sensor_idxs"].unique(), lidars.metadata["sensor_idxs"].unique())
+        )
 
         # same for radars
         radar_sensor_idxs = radars.metadata["sensor_idxs"].unique()
         if set(radar_sensor_idxs.tolist()).intersection(set(camera_lidar_idxs.tolist())):
             radars.metadata["sensor_idxs"] += camera_lidar_idxs.numel()
-        sensor_idx_to_name = {idx: name for idx, name in enumerate(self.config.cameras + self.config.lidars + self.config.radars)}
+        sensor_idx_to_name = {
+            idx: name for idx, name in enumerate(self.config.cameras + self.config.lidars + self.config.radars)
+        }
 
         # Apply splits
         split = 0 if split == "train" else 1
@@ -315,7 +327,13 @@ class ADDataParser(DataParser):
         return cameras, img_filenames, lidars, lidar_filenames, radars, radar_filenames, trajectories
 
     def _adjust_times(
-        self, cameras: Cameras, lidars: Lidars, point_clouds: List[Tensor], radars: Radars, radar_pcs: List[Tensor], trajectories: List[Dict]
+        self,
+        cameras: Cameras,
+        lidars: Lidars,
+        point_clouds: List[Tensor],
+        radars: Radars,
+        radar_pcs: List[Tensor],
+        trajectories: List[Dict],
     ) -> float:
         times = torch.cat([cameras.times, lidars.times, radars.times], dim=0)
         min_time = times.min().item()
@@ -401,7 +419,7 @@ class ADDataParser(DataParser):
                 radar2worlds, times = radars.radar_to_worlds[mask], radars.times[mask]
                 delta_time = times[1:] - times[:-1]
                 velo = (radar2worlds[1:, :3, 3] - radar2worlds[:-1, :3, 3]) / delta_time
-                velo[velo.isnan()] = 0.0 # for overfitting
+                velo[velo.isnan()] = 0.0  # for overfitting
                 radars.metadata["velocities"][mask] = torch.cat((velo, velo[-1:]), 0)
 
     def _interpolate_trajectories(self, trajectories: List[Dict], timestamps: Tensor, extrapolation_length: float):

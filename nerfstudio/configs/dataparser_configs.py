@@ -1,3 +1,5 @@
+# Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
 # Copyright 2024 the authors of NeuRAD and contributors.
 # Copyright 2022 the Regents of the University of California, Nerfstudio Team and contributors. All rights reserved.
 #
@@ -26,8 +28,8 @@ from nerfstudio.data.dataparsers.base_dataparser import DataParserConfig
 from nerfstudio.data.dataparsers.kittimot_dataparser import KittiMotDataParserConfig
 from nerfstudio.data.dataparsers.nuscenes_dataparser import NuScenesDataParserConfig
 from nerfstudio.data.dataparsers.pandaset_dataparser import PandaSetDataParserConfig
-from nerfstudio.data.dataparsers.zod_dataparser import ZodDataParserConfig
 from nerfstudio.data.dataparsers.vod_dataparser import VodDataParserConfig
+from nerfstudio.data.dataparsers.zod_dataparser import ZodDataParserConfig
 from nerfstudio.plugins.registry_dataparser import discover_dataparsers
 from nerfstudio.utils.rich_utils import CONSOLE
 

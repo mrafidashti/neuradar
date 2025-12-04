@@ -1,4 +1,6 @@
 # Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
+# Copyright 2025 the authors of NeuRadar and contributors.
 # Copyright 2022 The Nerfstudio Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,6 +35,10 @@ from torchmetrics.image import PeakSignalNoiseRatio
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 
 from nerfstudio.cameras.rays import RayBundle, RaySamples
+
+# Radar
+from nerfstudio.detr.models.position_encoding_3d import PositionEmbeddingCoordsSine
+from nerfstudio.detr.models.transformer import Transformer
 from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackLocation
 from nerfstudio.field_components.field_heads import FieldHeadNames
 from nerfstudio.field_components.mlp import MLP
@@ -50,29 +56,26 @@ from nerfstudio.model_components.losses import (
     distortion_loss,
     zipnerf_interlevel_loss,
 )
+from nerfstudio.model_components.radar_utils import (
+    add_actor_boxes_to_figure,
+    calculate_radar_loss,
+    chamfer_distance as radar_chamfer_distance,
+    emd_distance,
+    plot_radar_samples,
+    sample_radar_points,
+)
 from nerfstudio.model_components.ray_samplers import PowerSampler, ProposalNetworkSampler
 from nerfstudio.model_components.renderers import AccumulationRenderer, DepthRenderer, FeatureRenderer, NormalsRenderer
 from nerfstudio.models.ad_model import ADModel, ADModelConfig
+from nerfstudio.models.neurad import render_depth_simple
 from nerfstudio.utils import colormaps
 from nerfstudio.utils.external import TCNN_EXISTS
 from nerfstudio.utils.math import chamfer_distance
 from nerfstudio.utils.printing import print_tcnn_speed_warning
 from nerfstudio.viewer.server.viewer_elements import ViewerSlider
 
-# Radar
-from nerfstudio.detr.models.position_encoding_3d import PositionEmbeddingCoordsSine
-from nerfstudio.detr.models.transformer import Transformer
-from nerfstudio.model_components.radar_utils import (
-    calculate_radar_loss,
-    plot_radar_samples,
-    sample_radar_points,
-    add_actor_boxes_to_figure,
-    emd_distance
-    )
-from nerfstudio.model_components.radar_utils import chamfer_distance as radar_chamfer_distance
-from nerfstudio.models.neurad import render_depth_simple
-
 EPS = 1e-7
+
 
 @dataclass
 class LossSettings:
@@ -321,7 +324,6 @@ class NeuRadarModel(ADModel):
         self.rmse = lambda pred, gt: torch.sqrt(torch.mean((pred - gt) ** 2))
         self.chamfer_distance = lambda pred, gt: chamfer_distance(pred, gt, 1_000, True)
 
-
     def set_active_levels(self):
         pass
 
@@ -420,13 +422,25 @@ class NeuRadarModel(ADModel):
         """Take the neural feature field feature, and render them to rgb and/or intensity."""
 
         if is_lidar is None and is_radar is not None:
-            lidar_features, cam_features, radar_features = torch.empty(0), features[~is_radar[..., 0]], features[is_radar[..., 0]]
+            lidar_features, cam_features, radar_features = (
+                torch.empty(0),
+                features[~is_radar[..., 0]],
+                features[is_radar[..., 0]],
+            )
         elif is_lidar is None and is_radar is None:
             lidar_features, cam_features, radar_features = torch.empty(0), features, torch.empty(0)
         elif is_radar is None and is_lidar is not None:
-            lidar_features, cam_features, radar_features = features[is_lidar[..., 0]], features[~is_lidar[..., 0]], torch.empty(0)
+            lidar_features, cam_features, radar_features = (
+                features[is_lidar[..., 0]],
+                features[~is_lidar[..., 0]],
+                torch.empty(0),
+            )
         else:
-            lidar_features, cam_features, radar_features = features[is_lidar[..., 0]], features[torch.logical_and(~is_lidar[..., 0], ~is_radar[..., 0])], features[torch.logical_and(~is_lidar[..., 0], is_radar[..., 0])]
+            lidar_features, cam_features, radar_features = (
+                features[is_lidar[..., 0]],
+                features[torch.logical_and(~is_lidar[..., 0], ~is_radar[..., 0])],
+                features[torch.logical_and(~is_lidar[..., 0], is_radar[..., 0])],
+            )
 
         # Decode lidar features
         if intensity_for_cam:  # Useful for visualization
@@ -453,17 +467,21 @@ class NeuRadarModel(ADModel):
             # create position embedding
             num_radar_scans = num_radar_scans if num_radar_scans is not None else 1
             depth = depth[is_radar[:, 0]].view(num_radar_scans, -1, 1)  # (N, nr, 1)
-            directions_spher_b = directions_spher[is_radar[:, 0], :].view(num_radar_scans, -1, 2) # (N, nr, 2)
-            x_pos, y_pos, z_pos = self._get_cartesian_coords(depth,
-                                                                directions_spher_b[..., 1].unsqueeze(-1),
-                                                                directions_spher_b[..., 0].unsqueeze(-1))
+            directions_spher_b = directions_spher[is_radar[:, 0], :].view(num_radar_scans, -1, 2)  # (N, nr, 2)
+            x_pos, y_pos, z_pos = self._get_cartesian_coords(
+                depth, directions_spher_b[..., 1].unsqueeze(-1), directions_spher_b[..., 0].unsqueeze(-1)
+            )
             pos_embedding_input = torch.cat((x_pos, y_pos, z_pos), dim=2)  # (x, y, z), (N, nr, 3)
-            embedding = PositionEmbeddingCoordsSine(temperature=10000, pos_type="sine", d_pos=64).to(radar_features.device)
+            embedding = PositionEmbeddingCoordsSine(temperature=10000, pos_type="sine", d_pos=64).to(
+                radar_features.device
+            )
             pos_embed = embedding(pos_embedding_input, num_channels=radar_features.shape[-1])  # (N, C, nr)
 
             # Decoder
-            radar_features = radar_features.view(num_radar_scans, -1, radar_features.shape[-1]).permute(0, 2, 1)  # (N, C, nr)
-            final_output = self.radar_decoder(radar_features, pos_embed) # (S, N, nr, C)
+            radar_features = radar_features.view(num_radar_scans, -1, radar_features.shape[-1]).permute(
+                0, 2, 1
+            )  # (N, C, nr)
+            final_output = self.radar_decoder(radar_features, pos_embed)  # (S, N, nr, C)
 
             # Heads
             offset = 1.5 * self.offset_head(final_output)
@@ -635,8 +653,13 @@ class NeuRadarModel(ADModel):
             batch["radar_indices"] = batch["radar_indices"].to(self.device)
             outputs["radar_output"] = outputs["radar_output"].to(self.device)
 
-            metrics_dict["radar_loss"], _, _ = calculate_radar_loss(batch["radar"], outputs["radar_output"], batch["radar_indices"],
-                                                                    loss_type=self.config.loss.radar_loss_type, training=self.training)
+            metrics_dict["radar_loss"], _, _ = calculate_radar_loss(
+                batch["radar"],
+                outputs["radar_output"],
+                batch["radar_indices"],
+                loss_type=self.config.loss.radar_loss_type,
+                training=self.training,
+            )
 
         if self.training and "weights_list" in outputs:
             metrics_dict["distortion"] = distortion_loss(outputs["weights_list"], outputs["ray_samples_list"])
@@ -681,9 +704,13 @@ class NeuRadarModel(ADModel):
         return loss_dict
 
     def get_image_metrics_and_images(
-        self, outputs: Dict[str, torch.Tensor], batch: Dict[str, torch.Tensor]
-        , time: Optional[torch.Tensor] = None, radar_idx: Optional[int] = None, r2w: Optional[torch.Tensor] = None
-        ) -> Tuple[Dict[str, float], Dict[str, torch.Tensor], Dict]:
+        self,
+        outputs: Dict[str, torch.Tensor],
+        batch: Dict[str, torch.Tensor],
+        time: Optional[torch.Tensor] = None,
+        radar_idx: Optional[int] = None,
+        r2w: Optional[torch.Tensor] = None,
+    ) -> Tuple[Dict[str, float], Dict[str, torch.Tensor], Dict]:
         metrics_dict = {}
         images_dict = {}
         radar_dict = {}
@@ -749,21 +776,35 @@ class NeuRadarModel(ADModel):
             radar_batch = batch["radar"].to(self.device)
             indices = batch["indices"].to(self.device)
 
-            metrics_dict["radar_loss"], association, mb = calculate_radar_loss(radar_batch, radar_output, indices,
-                                                                               loss_type=self.config.loss.radar_loss_type,
-                                                                               training=self.training)
+            metrics_dict["radar_loss"], association, mb = calculate_radar_loss(
+                radar_batch, radar_output, indices, loss_type=self.config.loss.radar_loss_type, training=self.training
+            )
 
             # Get Radar points
-            radar_points, _ = sample_radar_points(radar_output, loss_type="euclidean", threshold = self.config.existence_probability_threshold)
+            radar_points, _ = sample_radar_points(
+                radar_output, loss_type="euclidean", threshold=self.config.existence_probability_threshold
+            )
 
             radar_batch_metrics = radar_batch[:, :3].reshape(-1, 3)
             radar_points_metrics = radar_points[:, :3].reshape(-1, 3)
 
             # Compute Chamfer and EMD distance between radar points and GT detections
-            if radar_points_metrics.any() and radar_points_metrics.shape[0] > 0 and radar_batch_metrics.any() and radar_batch_metrics.shape[0] > 0:
-                radar_points_arr, radar_batch_arr = radar_points_metrics.cpu().numpy(), radar_batch_metrics.cpu().numpy()
-                metrics_dict["chamfer_distance_radar"] = torch.tensor(radar_chamfer_distance(radar_points_arr, radar_batch_arr), device=self.device).float()
-                metrics_dict["emd_distance_radar"] = torch.tensor(emd_distance(radar_points_arr, radar_batch_arr), device=self.device).float()
+            if (
+                radar_points_metrics.any()
+                and radar_points_metrics.shape[0] > 0
+                and radar_batch_metrics.any()
+                and radar_batch_metrics.shape[0] > 0
+            ):
+                radar_points_arr, radar_batch_arr = (
+                    radar_points_metrics.cpu().numpy(),
+                    radar_batch_metrics.cpu().numpy(),
+                )
+                metrics_dict["chamfer_distance_radar"] = torch.tensor(
+                    radar_chamfer_distance(radar_points_arr, radar_batch_arr), device=self.device
+                ).float()
+                metrics_dict["emd_distance_radar"] = torch.tensor(
+                    emd_distance(radar_points_arr, radar_batch_arr), device=self.device
+                ).float()
             elif radar_batch_metrics.any() and radar_batch_metrics.shape[0] > 0:
                 dist = radar_batch_metrics.norm(dim=-1).mean()
                 metrics_dict["chamfer_distance_radar"] = dist
@@ -777,13 +818,19 @@ class NeuRadarModel(ADModel):
                 metrics_dict["emd_distance_radar"] = 0.0
 
             # Plot Radar detections
-            radar_points_plot, ber_indices_plot = sample_radar_points(radar_output, loss_type=self.config.loss.radar_loss_type, threshold = self.config.existence_probability_threshold)
+            radar_points_plot, ber_indices_plot = sample_radar_points(
+                radar_output,
+                loss_type=self.config.loss.radar_loss_type,
+                threshold=self.config.existence_probability_threshold,
+            )
             radar_points_plot = radar_points_plot[:, :3]
             radar_figure = plot_radar_samples(radar_batch, radar_points_plot, association, mb, ber_indices_plot)
 
             # Add dynamic actors to plot
             if time is not None and r2w is not None and radar_idx is not None:
-                actor_b2w, scan_indices, actor_indices = self.dynamic_actors.get_boxes2world(query_times=time.to(self.device))
+                actor_b2w, scan_indices, actor_indices = self.dynamic_actors.get_boxes2world(
+                    query_times=time.to(self.device)
+                )
                 actor_sizes = self.dynamic_actors.actor_sizes
                 actor_information = {
                     "actor_b2w": actor_b2w.to(self.device),
@@ -808,21 +855,39 @@ class NeuRadarModel(ADModel):
             radar_output = outputs["radar_output"].to(self.device)
             radar_batch = batch["radar"].to(self.device)
 
-            metrics_dict = {"chamfer_distance": torch.zeros(sampling_rounds).to(self.device),
-                            "emd_distance": torch.zeros(sampling_rounds).to(self.device),
-                            "gospa": torch.zeros(sampling_rounds).to(self.device), "gospa_loc": torch.zeros(sampling_rounds).to(self.device),
-                            "gospa_missed": torch.zeros(sampling_rounds).to(self.device), "gospa_false": torch.zeros(sampling_rounds).to(self.device)}
+            metrics_dict = {
+                "chamfer_distance": torch.zeros(sampling_rounds).to(self.device),
+                "emd_distance": torch.zeros(sampling_rounds).to(self.device),
+                "gospa": torch.zeros(sampling_rounds).to(self.device),
+                "gospa_loc": torch.zeros(sampling_rounds).to(self.device),
+                "gospa_missed": torch.zeros(sampling_rounds).to(self.device),
+                "gospa_false": torch.zeros(sampling_rounds).to(self.device),
+            }
             for i in range(sampling_rounds):
-                radar_points, _ = sample_radar_points(radar_output, loss_type="euclidean", threshold=self.config.existence_probability_threshold)
+                radar_points, _ = sample_radar_points(
+                    radar_output, loss_type="euclidean", threshold=self.config.existence_probability_threshold
+                )
 
                 radar_batch_metrics = radar_batch[:, :3].reshape(-1, 3)
                 radar_points_metrics = radar_points[:, :3].reshape(-1, 3)
 
                 # Compute Chamfer and EMD distance between radar points and GT detections
-                if radar_points_metrics.any() and radar_points_metrics.shape[0] > 0 and radar_batch_metrics.any() and radar_batch_metrics.shape[0] > 0:
-                    radar_points_arr, radar_batch_arr = radar_points_metrics.cpu().numpy(), radar_batch_metrics.cpu().numpy()
-                    metrics_dict["chamfer_distance"][i] = torch.tensor(radar_chamfer_distance(radar_points_arr, radar_batch_arr), device=self.device).float()
-                    metrics_dict["emd_distance"][i] = torch.tensor(emd_distance(radar_points_arr, radar_batch_arr), device=self.device).float()
+                if (
+                    radar_points_metrics.any()
+                    and radar_points_metrics.shape[0] > 0
+                    and radar_batch_metrics.any()
+                    and radar_batch_metrics.shape[0] > 0
+                ):
+                    radar_points_arr, radar_batch_arr = (
+                        radar_points_metrics.cpu().numpy(),
+                        radar_batch_metrics.cpu().numpy(),
+                    )
+                    metrics_dict["chamfer_distance"][i] = torch.tensor(
+                        radar_chamfer_distance(radar_points_arr, radar_batch_arr), device=self.device
+                    ).float()
+                    metrics_dict["emd_distance"][i] = torch.tensor(
+                        emd_distance(radar_points_arr, radar_batch_arr), device=self.device
+                    ).float()
                 elif radar_batch_metrics.any() and radar_batch_metrics.shape[0] > 0:
                     dist = torch.mean(torch.norm(radar_batch_metrics, dim=-1)).float()
                     metrics_dict["chamfer_distance"][i] = dist
@@ -883,9 +948,14 @@ class NeuRadarModel(ADModel):
 
         features = outputs["features"].view(-1, outputs["features"].shape[-1])
         rgb, intensity, ray_drop_logit, radar_output = self.decode_features(
-            features, patch_size, outputs["depth"],
+            features,
+            patch_size,
+            outputs["depth"],
             camera_ray_bundle.metadata.get("directions_spher"),
-            intensity_for_cam=True, is_lidar=is_lidar, is_radar=is_radar)
+            intensity_for_cam=True,
+            is_lidar=is_lidar,
+            is_radar=is_radar,
+        )
         if rgb is not None:
             outputs["rgb"] = rgb.squeeze(0)
         if intensity is not None:

@@ -1,3 +1,5 @@
+# Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
 # Copyright 2024 the authors of NeuRAD and contributors.
 # Copyright 2022 the Regents of the University of California, Nerfstudio Team and contributors. All rights reserved.
 #
@@ -41,8 +43,8 @@ from nerfstudio.data.datamanagers.base_datamanager import VanillaDataManager
 from nerfstudio.data.datamanagers.parallel_datamanager import ParallelDataManager
 from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes, TrainingCallbackLocation
 from nerfstudio.engine.optimizers import Optimizers
-from nerfstudio.pipelines.base_pipeline import VanillaPipeline
 from nerfstudio.pipelines.ad_neuradar_pipeline import ADNeuRadarPipeline
+from nerfstudio.pipelines.base_pipeline import VanillaPipeline
 from nerfstudio.utils import profiler, writer
 from nerfstudio.utils.decorators import check_eval_enabled, check_main_thread, check_viewer_enabled
 from nerfstudio.utils.misc import step_check
@@ -690,12 +692,13 @@ class Trainer:
 
         # Eval all radars
         if step_check(step, self.config.steps_per_eval_all_radars):
-            metrics_dict = self.pipeline.get_average_eval_radar_metrics() # type: ignore
+            metrics_dict = self.pipeline.get_average_eval_radar_metrics()  # type: ignore
             writer.put_dict(
                 name="Eval Radar Metrics Dict (all eval radar scans)",
                 scalar_dict=detach_items_if_tensor(metrics_dict),
                 step=step,
             )
+
 
 def detach_items_if_tensor(dict):
     """Detach items in dictionary if they are tensors"""

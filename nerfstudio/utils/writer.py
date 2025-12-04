@@ -1,3 +1,5 @@
+# Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
 # Copyright 2024 the authors of NeuRAD and contributors.
 # Copyright 2022 the Regents of the University of California, Nerfstudio Team and contributors. All rights reserved.
 #
@@ -121,6 +123,7 @@ def put_config(name: str, config_dict: Dict[str, Any], step: int):
     """
     EVENT_STORAGE.append({"name": name, "write_type": EventType.CONFIG, "event": config_dict, "step": step})
 
+
 @check_main_thread
 def put_figure(name: str, figure_dict: Dict[str, Any], step: int):
     """Setter function to place a dictionary of scalars into the queue to be written out
@@ -131,6 +134,7 @@ def put_figure(name: str, figure_dict: Dict[str, Any], step: int):
         step: step associated with dict
     """
     EVENT_STORAGE.append({"name": name, "write_type": EventType.FIGURE, "event": figure_dict, "step": step})
+
 
 @check_main_thread
 def put_time(name: str, duration: float, step: int, avg_over_steps: bool = True, update_eta: bool = False):
@@ -259,7 +263,7 @@ class Writer:
             step: the time step to log
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def write_figure(self, name: str, figure, step: int) -> None:
         """method to write out image
@@ -345,6 +349,7 @@ class WandbWriter(Writer):
 
     def write_figure(self, name: str, figure, step: int) -> None:
         import wandb  # wandb is slow to import, so we only import it if we need it.
+
         wandb.log({name: figure}, step=step)
 
     def write_scalar(self, name: str, scalar: Union[float, torch.Tensor], step: int) -> None:

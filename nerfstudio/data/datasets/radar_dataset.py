@@ -1,3 +1,5 @@
+# Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
 # Copyright 2023 The Nerfstudio Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +20,6 @@ Lidar Dataset.
 from __future__ import annotations
 
 from copy import deepcopy
-from pathlib import Path
 from typing import Dict, List
 
 import torch
@@ -67,7 +68,11 @@ class RadarDataset(Dataset):
             radar_idx: The radar index in the dataset.
         """
         data = {"radar_idx": radar_idx}
-        sensor_index = self.radars.metadata["sensor_idxs"].squeeze()[radar_idx] if len(self.radars.metadata["sensor_idxs"]) > 1 else torch.tensor([self.radars.metadata["sensor_idxs"]])
+        sensor_index = (
+            self.radars.metadata["sensor_idxs"].squeeze()[radar_idx]
+            if len(self.radars.metadata["sensor_idxs"]) > 1
+            else torch.tensor([self.radars.metadata["sensor_idxs"]])
+        )
         data.update({"sensor_idx": sensor_index})
         point_cloud = self.point_clouds[radar_idx]
         point_cloud = torch.cat([point_cloud, torch.zeros(point_cloud.shape[0], 1)], dim=1)

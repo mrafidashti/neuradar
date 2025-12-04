@@ -1,11 +1,26 @@
+# Copyright 2025 the authors of NeuRadar and contributors.
+# Copyright 2025 the authors of NeuRAD and contributors.
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 Various positional encodings for the transformer.
 """
 import math
+
+import numpy as np
 import torch
 from torch import nn
-import numpy as np
 
 
 class PositionEmbeddingCoordsSine(nn.Module):
@@ -43,7 +58,7 @@ class PositionEmbeddingCoordsSine(nn.Module):
         orig_xyz = xyz
         xyz = orig_xyz.clone()
 
-        #ncoords = xyz.shape[1]
+        # ncoords = xyz.shape[1]
         if self.normalize:
             xyz = shift_scale_points(xyz, src_range=input_range)
 
@@ -76,9 +91,7 @@ class PositionEmbeddingCoordsSine(nn.Module):
             if self.scale:
                 raw_pos *= self.scale
             pos = raw_pos[:, :, None] / dim_t
-            pos = torch.stack(
-                (pos[:, :, 0::2].sin(), pos[:, :, 1::2].cos()), dim=3
-            ).flatten(2)
+            pos = torch.stack((pos[:, :, 0::2].sin(), pos[:, :, 1::2].cos()), dim=3).flatten(2)
             final_embeds.append(pos)
             prev_dim = cdim
 
@@ -102,14 +115,12 @@ class PositionEmbeddingCoordsSine(nn.Module):
         orig_xyz = xyz
         xyz = orig_xyz.clone()
 
-        #ncoords = xyz.shape[1]
+        # ncoords = xyz.shape[1]
         if self.normalize:
             xyz = shift_scale_points(xyz, src_range=input_range)
 
         xyz *= 2 * np.pi
-        xyz_proj = torch.mm(xyz.view(-1, d_in), self.gauss_B[:, :d_out]).view(
-            bsize, npoints, d_out
-        )
+        xyz_proj = torch.mm(xyz.view(-1, d_in), self.gauss_B[:, :d_out]).view(bsize, npoints, d_out)
         final_embeds = [xyz_proj.sin(), xyz_proj.cos()]
 
         # return batch x d_pos x npoints embedding
@@ -132,9 +143,7 @@ class PositionEmbeddingCoordsSine(nn.Module):
     def extra_repr(self):
         st = f"type={self.pos_type}, scale={self.scale}, normalize={self.normalize}"
         if hasattr(self, "gauss_B"):
-            st += (
-                f", gaussB={self.gauss_B.shape}, gaussBsum={self.gauss_B.sum().item()}"
-            )
+            st += f", gaussB={self.gauss_B.shape}, gaussBsum={self.gauss_B.sum().item()}"
         return st
 
 
@@ -163,7 +172,5 @@ def shift_scale_points(pred_xyz, src_range, dst_range=None):
 
     src_diff = src_range[1][:, None, :] - src_range[0][:, None, :]
     dst_diff = dst_range[1][:, None, :] - dst_range[0][:, None, :]
-    prop_xyz = (
-        ((pred_xyz - src_range[0][:, None, :]) * dst_diff) / src_diff
-    ) + dst_range[0][:, None, :]
+    prop_xyz = (((pred_xyz - src_range[0][:, None, :]) * dst_diff) / src_diff) + dst_range[0][:, None, :]
     return prop_xyz

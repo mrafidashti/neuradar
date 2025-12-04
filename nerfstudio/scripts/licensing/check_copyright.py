@@ -1,3 +1,4 @@
+# Copyright 2025 the authors of NeuRadar and contributors.
 # Copyright 2024 the authors of NeuRAD and contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +18,7 @@ import subprocess
 import sys
 
 CURRENT_YEAR = str(datetime.datetime.now().year)
-COPYRIGHT_STR = f"# Copyright {CURRENT_YEAR} the authors of NeuRAD and contributors.\n"
+COPYRIGHT_STR = f"# Copyright {CURRENT_YEAR} the authors of NeuRadar and contributors.\n"
 LICENSE_HEADER = """\
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
