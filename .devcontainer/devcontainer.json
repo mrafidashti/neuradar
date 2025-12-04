@@ -1,0 +1,14 @@
+{
+    "name": "NeuRadar Dev Container",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "neuradar",
+    "workspaceFolder": "/workspace",
+    "shutdownAction": "stopCompose",
+    "extensions": [
+        "mutantdino.resourcemonitor",
+        "ms-azuretools.vscode-docker",
+        "nvidia.nsight-vscode-edition",
+        "ms-python.python",
+        "charliermarsh.ruff"
+    ]
+}
