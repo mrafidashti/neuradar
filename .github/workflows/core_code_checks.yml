@@ -25,6 +25,9 @@ jobs:
           key: ${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
       - name: Install dependencies
         run: |
+          run: |
+          pip install --upgrade pip
+          pip install "scipy>1.13.0"
           pip install --upgrade --upgrade-strategy eager -e .[dev]
           pip install waymo-open-dataset-tf-2-11-0==1.6.1
       - name: Check notebook cell metadata
